@@ -1,8 +1,6 @@
 "use client"
 
 import * as React from "react"
-
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -15,170 +13,115 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboardIcon, ListIcon, ChartBarIcon, FolderIcon, UsersIcon, CameraIcon, FileTextIcon, Settings2Icon, CircleHelpIcon, SearchIcon, DatabaseIcon, FileChartColumnIcon, FileIcon, CommandIcon } from "lucide-react"
+import {
+  LayoutDashboardIcon,
+  UsersIcon,
+  MegaphoneIcon,
+  FileTextIcon,
+  InboxIcon,
+  BellIcon,
+  Settings2Icon,
+  CircleHelpIcon,
+  Zap,
+} from "lucide-react"
 
+// ─── Static badge counts (replace with dynamic data later) ────────────────
+const BADGE_COUNTS = {
+  inbox: 3,        // unread lead replies
+  notifications: 5, // unread notifications
+  campaigns: 2,    // actively running campaigns
+}
+
+// ─── Badge component ───────────────────────────────────────────────────────
+function NavBadge({ count, variant = "default" }: { count: number; variant?: "default" | "danger" | "blue" }) {
+  if (count === 0) return null
+
+  const styles = {
+    default: "bg-muted text-muted-foreground",
+    danger:  "bg-red-500 text-white",
+    blue:    "bg-blue-500 text-white",
+  }
+
+  return (
+    <span
+      className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${styles[variant]}`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
+
+// ─── Data ──────────────────────────────────────────────────────────────────
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Faysal Sarker",
+    email: "faysal@pitchpilot.dev",
+    avatar: "",
   },
+
+  // Primary navigation — core pages
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
-      icon: (
-        <LayoutDashboardIcon
-        />
-      ),
+      url: "/",
+      icon: <LayoutDashboardIcon />,
+      badge: null,
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: (
-        <ListIcon
-        />
-      ),
+      title: "Leads",
+      url: "/leads",
+      icon: <UsersIcon />,
+      badge: null,
     },
     {
-      title: "Analytics",
-      url: "#",
-      icon: (
-        <ChartBarIcon
-        />
-      ),
+      title: "Campaigns",
+      url: "/campaigns",
+      icon: <MegaphoneIcon />,
+      badge: BADGE_COUNTS.campaigns > 0
+        ? <NavBadge count={BADGE_COUNTS.campaigns} variant="blue" />
+        : null,
     },
     {
-      title: "Projects",
-      url: "#",
-      icon: (
-        <FolderIcon
-        />
-      ),
+      title: "Templates",
+      url: "/templates",
+      icon: <FileTextIcon />,
+      badge: null,
     },
     {
-      title: "Team",
-      url: "#",
-      icon: (
-        <UsersIcon
-        />
-      ),
+      title: "Inbox",
+      url: "/inbox",
+      icon: <InboxIcon />,
+      badge: <NavBadge count={BADGE_COUNTS.inbox} variant="danger" />,
+    },
+    {
+      title: "Notifications",
+      url: "/notifications",
+      icon: <BellIcon />,
+      badge: <NavBadge count={BADGE_COUNTS.notifications} variant="danger" />,
     },
   ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: (
-        <CameraIcon
-        />
-      ),
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: (
-        <FileTextIcon
-        />
-      ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: (
-        <FileTextIcon
-        />
-      ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
+
+  // Bottom secondary navigation
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
-      icon: (
-        <Settings2Icon
-        />
-      ),
+      url: "/settings/mailboxes",
+      icon: <Settings2Icon />,
     },
     {
       title: "Get Help",
-      url: "#",
-      icon: (
-        <CircleHelpIcon
-        />
-      ),
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: (
-        <SearchIcon
-        />
-      ),
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: (
-        <DatabaseIcon
-        />
-      ),
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: (
-        <FileChartColumnIcon
-        />
-      ),
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: (
-        <FileIcon
-        />
-      ),
+      url: "/help",
+      icon: <CircleHelpIcon />,
     },
   ],
 }
 
+// ─── AppSidebar ────────────────────────────────────────────────────────────
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
+
+      {/* ── Header: Logo ── */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -186,22 +129,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <a href="#">
-                <CommandIcon className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+              <a href="/dashboard" className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Zap className="size-4" />
+                </span>
+                <span className="text-base font-bold tracking-tight">PitchPilot</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
+      {/* ── Content ── */}
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
+
+      {/* ── Footer: User ── */}
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
+
     </Sidebar>
   )
 }
