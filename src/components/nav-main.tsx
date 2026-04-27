@@ -30,42 +30,20 @@ export function NavMain({
       <SidebarGroupContent className="flex flex-col gap-2">
 
         {/* ── Quick Actions row ── */}
-        <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
-            <SidebarMenuButton
-              tooltip="Add Lead"
-              onClick={() => router.push("/leads/add")}
-              className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
-            >
-              <CirclePlusIcon />
-              <span>Add Lead</span>
-            </SidebarMenuButton>
-
-            <Button
-              size="icon"
-              className="size-8 shrink-0 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-              onClick={() => router.push("/inbox")}
-            >
-              <MailIcon />
-              <span className="sr-only">Inbox</span>
-            </Button>
-          </SidebarMenuItem>
-        </SidebarMenu>
+    
 
         {/* ── Main nav items ── */}
         <SidebarMenu>
           {items.map((item) => {
-            const isActive =
-              item.url === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.url)
+
+console.log("Current path:", pathname, " - Comparing with item URL:", item.url);
+           const isActive = item.url === pathname;
 
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                   tooltip={item.title}
-                  isActive={isActive}
+                  className={isActive ? "bg-primary text-primary-foreground" : ""}
                   onClick={() => router.push(item.url)}
                 >
                   {item.icon}
