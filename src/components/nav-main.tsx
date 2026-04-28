@@ -29,10 +29,6 @@ export function NavMain({
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
 
-        {/* ── Quick Actions row ── */}
-    
-
-        {/* ── Main nav items ── */}
         <SidebarMenu>
           {items.map((item) => {
 

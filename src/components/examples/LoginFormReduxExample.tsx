@@ -1,18 +1,27 @@
+/**
+ * Example Login Form Component using Redux Auth Hooks
+ * This shows how to integrate the new Redux/RTK Query auth system
+ */
+
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
+// Import Redux auth hooks and utilities
+import {
+  useLoginMutation,
+  initializeUserData,
+} from "@/redux/features/auth";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -24,10 +33,12 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-const LoginForm = () => {
+export const LoginFormWithRedux = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+
+  // RTK Query hook for login
+  const [login, { isLoading }] = useLoginMutation();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -35,30 +46,38 @@ const LoginForm = () => {
   });
 
   const onSubmit = async (values: LoginValues) => {
-    setSubmitting(true);
     try {
-      const result = await signIn("credentials", {
+      // Call Redux mutation
+      await login({
         email: values.email,
         password: values.password,
-        redirect: false,
+      }).unwrap();
+
+      // Initialize user data in localStorage
+      initializeUserData({
+        email: values.email,
       });
 
-      if (result?.error) {
-        toast.error("Login failed", {
-          description: result.error || "Invalid credentials",
-        });
-      } else if (result?.ok) {
-        toast.success("Login successful", {
-          description: `Welcome back, ${values.email}`,
-        });
-        router.push("/");
-      }
-    } catch (error) {
-      toast.error("Login failed", {
-        description: "An unexpected error occurred",
+      toast.success("Login successful", {
+        description: `Welcome back, ${values.email}`,
       });
-    } finally {
-      setSubmitting(false);
+
+      // Redirect to dashboard
+      router.push("/");
+    } catch (error: unknown) {
+      let errorMessage = "Login failed";
+      
+      if (error && typeof error === "object" && "data" in error) {
+        const err = error as Record<string, unknown>;
+        if (err.data && typeof err.data === "object") {
+          const data = err.data as Record<string, unknown>;
+          errorMessage = (data.error || data.message || "Login failed") as string;
+        }
+      }
+      
+      toast.error("Login failed", {
+        description: errorMessage,
+      });
     }
   };
 
@@ -125,8 +144,12 @@ const LoginForm = () => {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? (
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...
@@ -142,4 +165,4 @@ const LoginForm = () => {
   );
 };
 
-export default LoginForm;
+export default LoginFormWithRedux;

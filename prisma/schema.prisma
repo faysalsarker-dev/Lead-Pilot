@@ -7,3 +7,360 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+
+
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  yourService    String?   // e.g. "web development", "SEO"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Settings
+  autoEnrich          Boolean @default(true)   // auto-run Gemini on lead create
+  defaultSendWindow   String  @default("09:00-11:00") // local time window
+  webPushEnabled      Boolean @default(false)
+  webPushSubscription Json?   // stores push subscription object
+
+  // Relations
+  mailboxes     Mailbox[]
+  leads         Lead[]
+  templates     Template[]
+  campaigns     Campaign[]
+  notifications Notification[]
+}
+
+// ─────────────────────────────────────────
+// MAILBOX
+// ─────────────────────────────────────────
+
+model Mailbox {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label       String      // "Main Outreach", "Follow-up Mail"
+  type        MailboxType // GMAIL_OAUTH | CUSTOM_SMTP
+  isDefault   Boolean     @default(false)
+  isActive    Boolean     @default(true)
+
+  // Gmail OAuth
+  gmailRefreshToken String?
+
+  // Custom SMTP
+  smtpHost     String?
+  smtpPort     Int?
+  smtpUser     String?
+  smtpPassEnc  String?   // encrypted at app level before storing
+
+  // IMAP (for reply detection — both types)
+  imapHost     String?
+  imapPort     Int?
+  imapUser     String?
+  imapPassEnc  String?
+  lastImapSync DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns Campaign[]
+  replies   Reply[]
+  emailQueue EmailQueue[]
+}
+
+enum MailboxType {
+  GMAIL_OAUTH
+  CUSTOM_SMTP
+}
+
+// ─────────────────────────────────────────
+// LEAD
+// ─────────────────────────────────────────
+
+model Lead {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basic info
+  name         String
+  email        String
+  businessName String
+  businessType String?
+  website      String?
+  country      String?
+  timezone     String?    // e.g. "America/New_York" — critical for scheduling
+
+  // Pipeline status
+  status       LeadStatus @default(NEW)
+  isActive     Boolean    @default(false)  // true once they reply, never resets
+  hasReplied   Boolean    @default(false)
+  isInterested Boolean    @default(false)  // manually set by user
+
+  // AI enrichment (from Gemini)
+  aiScore        Int?      // 1–10
+  aiSummary      String?
+  aiPainPoints   String[]  // array of strings
+  aiEmailOpener  String?
+  aiEnriched     Boolean   @default(false)
+  aiEnrichedAt   DateTime?
+
+  // Campaign tracking
+  campaignRunning Boolean @default(false)
+
+  // Notes (manual)
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaignLeads  CampaignLead[]
+  replies        Reply[]
+  conversation   Conversation?
+  notifications  Notification[]
+  emailQueue     EmailQueue[]
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  ACTIVE       // replied
+  INTERESTED   // expressed interest
+  CONVERTED    // signed/paid
+  REJECTED     // said no
+}
+
+// ─────────────────────────────────────────
+// TEMPLATE
+// ─────────────────────────────────────────
+
+model Template {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  type      TemplateType
+
+  subjectA  String       // A/B test subject line A
+  subjectB  String?      // optional B variant
+  body      String       // supports {{name}}, {{business}}, {{pain_point}}, {{your_name}}, {{your_service}}
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations — which campaigns use this template at each step
+  campaignsAsInitial    Campaign[] @relation("InitialTemplate")
+  campaignsAsFollowup1  Campaign[] @relation("Followup1Template")
+  campaignsAsFollowup2  Campaign[] @relation("Followup2Template")
+  campaignsAsFinal      Campaign[] @relation("FinalTemplate")
+  emailQueue            EmailQueue[]
+}
+
+enum TemplateType {
+  INITIAL
+  FOLLOWUP_1
+  FOLLOWUP_2
+  FINAL
+}
+
+// ─────────────────────────────────────────
+// CAMPAIGN
+// ─────────────────────────────────────────
+
+model Campaign {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  status    CampaignStatus @default(DRAFT)
+
+  // Mailbox to send from
+  mailboxId String
+  mailbox   Mailbox        @relation(fields: [mailboxId], references: [id])
+
+  // Templates
+  initialTemplateId   String
+  initialTemplate     Template @relation("InitialTemplate", fields: [initialTemplateId], references: [id])
+  followup1TemplateId String?
+  followup1Template   Template? @relation("Followup1Template", fields: [followup1TemplateId], references: [id])
+  followup2TemplateId String?
+  followup2Template   Template? @relation("Followup2Template", fields: [followup2TemplateId], references: [id])
+  finalTemplateId     String?
+  finalTemplate       Template? @relation("FinalTemplate", fields: [finalTemplateId], references: [id])
+
+  // Follow-up timing (in days after previous email)
+  followup1Days Int @default(3)
+  followup2Days Int @default(5)
+  finalDays     Int @default(7)
+
+  // Send window — "09:00-11:00" in recipient local time
+  sendWindow String @default("09:00-11:00")
+
+  // Bounce rate tracking
+  totalSent    Int @default(0)
+  totalBounced Int @default(0)
+  autoPaused   Boolean @default(false) // true if bounce rate hit 5%
+
+  launchedAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  campaignLeads CampaignLead[]
+  emailQueue    EmailQueue[]
+  notifications Notification[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+// ─────────────────────────────────────────
+// CAMPAIGN LEAD (junction)
+// ─────────────────────────────────────────
+
+model CampaignLead {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Which A/B subject was assigned to this lead
+  assignedSubject String? // "A" or "B"
+
+  // Per-lead timestamps within this campaign
+  sentAt          DateTime?
+  openedAt        DateTime? // from pixel tracking (best-effort)
+  repliedAt       DateTime?
+  followup1SentAt DateTime?
+  followup2SentAt DateTime?
+  finalSentAt     DateTime?
+
+  // Per-lead status in this campaign
+  bounced   Boolean @default(false)
+  unsubscribed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, leadId]) // a lead can only be in a campaign once
+}
+
+// ─────────────────────────────────────────
+// EMAIL QUEUE
+// ─────────────────────────────────────────
+
+model EmailQueue {
+  id           String          @id @default(cuid())
+  campaignId   String
+  campaign     Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId       String
+  lead         Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  mailboxId    String
+  mailbox      Mailbox         @relation(fields: [mailboxId], references: [id])
+  templateId   String
+  template     Template        @relation(fields: [templateId], references: [id])
+
+  templateType TemplateType    // INITIAL | FOLLOWUP_1 | etc.
+  subject      String          // resolved subject (after A/B assignment)
+  body         String          // resolved body (after variable substitution)
+
+  scheduledAt  DateTime        // UTC — calculated from lead timezone + send window
+  status       EmailQueueStatus @default(PENDING)
+
+  sentAt       DateTime?
+  failedAt     DateTime?
+  failReason   String?
+  retryCount   Int @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+enum EmailQueueStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED  // when lead replies — pending follow-ups get cancelled
+}
+
+// ─────────────────────────────────────────
+// REPLY (incoming from lead)
+// ─────────────────────────────────────────
+
+model Reply {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  mailboxId String
+  mailbox   Mailbox  @relation(fields: [mailboxId], references: [id])
+
+  fromEmail   String
+  subject     String
+  body        String   // full email body
+  threadId    String?  // Gmail/IMAP thread reference
+  receivedAt  DateTime
+
+  isRead      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────
+// CONVERSATION (full thread — sent + received)
+// ─────────────────────────────────────────
+
+model Conversation {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Stored as JSON array: [{role: "user"|"lead", body, subject, sentAt}]
+  messages Json @default("[]")
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATION
+// ─────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaignId String?
+  campaign   Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  type       NotificationType
+  message    String
+  isRead     Boolean @default(false)
+
+  createdAt  DateTime @default(now())
+}
+
+enum NotificationType {
+  REPLY_RECEIVED
+  FOLLOWUP_SENT
+  CAMPAIGN_COMPLETED
+  LEAD_BOUNCED
+  CAMPAIGN_PAUSED
+  AI_ENRICHMENT_DONE
+}
