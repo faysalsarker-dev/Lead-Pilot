@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
 
+export const runtime = "nodejs";
+
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email"),
 });

@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from "@/components/blocks/nav-main"
+import { NavSecondary } from "@/components/blocks/nav-secondary"
+import { NavUser } from "@/components/blocks/nav-user"
 import {
   Sidebar,
   SidebarContent,

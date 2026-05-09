@@ -1,4 +1,7 @@
 
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client"
   output   = "../src/app/generated/prisma"
@@ -8,22 +11,76 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================
+// ENUMS
+// ============================================
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  ACTIVE       // replied
+  INTERESTED   // expressed interest
+  CONVERTED    // signed/paid
+  REJECTED     // said no
+}
+
+enum MailboxType {
+  GMAIL_OAUTH
+  CUSTOM_SMTP
+}
+
+enum TemplateType {
+  INITIAL
+  FOLLOWUP_1
+  FOLLOWUP_2
+  FINAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum EmailQueueStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED  // when lead replies — pending follow-ups get cancelled
+}
+
+enum NotificationType {
+  REPLY_RECEIVED
+  FOLLOWUP_SENT
+  CAMPAIGN_COMPLETED
+  LEAD_BOUNCED
+  CAMPAIGN_PAUSED
+  AI_ENRICHMENT_DONE
+}
 
 
+enum UserStatus {
+  ACTIVE
+  TRIAL_EXPIRED
+  PAUSED_FOR_BILLING
+  BLOCKED 
+}
 
-// ─────────────────────────────────────────
-// USER
-// ─────────────────────────────────────────
+
+// ============================================
+// MODELS
+// ============================================
 
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
-  passwordHash   String
+  password   String
   name           String
-  yourService    String?   // e.g. "web development", "SEO"
+  service    String?   // e.g. "web development", "SEO"
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-
+  status         UserStatus?   // e.g. "active", "trial_expired", "paused_for_billing"
   // Settings
   autoEnrich          Boolean @default(true)   // auto-run Gemini on lead create
   defaultSendWindow   String  @default("09:00-11:00") // local time window
@@ -36,11 +93,11 @@ model User {
   templates     Template[]
   campaigns     Campaign[]
   notifications Notification[]
-}
 
-// ─────────────────────────────────────────
-// MAILBOX
-// ─────────────────────────────────────────
+  // Indexes for better query performance
+  @@index([email])
+  @@index([createdAt])
+}
 
 model Mailbox {
   id          String      @id @default(cuid())
@@ -74,16 +131,14 @@ model Mailbox {
   campaigns Campaign[]
   replies   Reply[]
   emailQueue EmailQueue[]
-}
 
-enum MailboxType {
-  GMAIL_OAUTH
-  CUSTOM_SMTP
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([type])
+  @@index([userId, isActive])
 }
-
-// ─────────────────────────────────────────
-// LEAD
-// ─────────────────────────────────────────
 
 model Lead {
   id           String     @id @default(cuid())
@@ -108,7 +163,7 @@ model Lead {
   // AI enrichment (from Gemini)
   aiScore        Int?      // 1–10
   aiSummary      String?
-  aiPainPoints   String[]  // array of strings
+  aiPainPoints   String?  
   aiEmailOpener  String?
   aiEnriched     Boolean   @default(false)
   aiEnrichedAt   DateTime?
@@ -128,20 +183,19 @@ model Lead {
   conversation   Conversation?
   notifications  Notification[]
   emailQueue     EmailQueue[]
-}
 
-enum LeadStatus {
-  NEW
-  CONTACTED
-  ACTIVE       // replied
-  INTERESTED   // expressed interest
-  CONVERTED    // signed/paid
-  REJECTED     // said no
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([hasReplied])
+  @@index([isActive])
+  @@index([aiEnriched])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([userId, hasReplied])
+  @@index([userId, createdAt])
 }
-
-// ─────────────────────────────────────────
-// TEMPLATE
-// ─────────────────────────────────────────
 
 model Template {
   id        String       @id @default(cuid())
@@ -164,18 +218,13 @@ model Template {
   campaignsAsFollowup2  Campaign[] @relation("Followup2Template")
   campaignsAsFinal      Campaign[] @relation("FinalTemplate")
   emailQueue            EmailQueue[]
-}
 
-enum TemplateType {
-  INITIAL
-  FOLLOWUP_1
-  FOLLOWUP_2
-  FINAL
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId, type])
 }
-
-// ─────────────────────────────────────────
-// CAMPAIGN
-// ─────────────────────────────────────────
 
 model Campaign {
   id        String         @id @default(cuid())
@@ -221,18 +270,17 @@ model Campaign {
   campaignLeads CampaignLead[]
   emailQueue    EmailQueue[]
   notifications Notification[]
-}
 
-enum CampaignStatus {
-  DRAFT
-  RUNNING
-  PAUSED
-  COMPLETED
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([status])
+  @@index([mailboxId])
+  @@index([launchedAt])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
-
-// ─────────────────────────────────────────
-// CAMPAIGN LEAD (junction)
-// ─────────────────────────────────────────
 
 model CampaignLead {
   id         String   @id @default(cuid())
@@ -259,11 +307,14 @@ model CampaignLead {
   createdAt DateTime @default(now())
 
   @@unique([campaignId, leadId]) // a lead can only be in a campaign once
-}
 
-// ─────────────────────────────────────────
-// EMAIL QUEUE
-// ─────────────────────────────────────────
+  // Indexes for better query performance
+  @@index([campaignId])
+  @@index([leadId])
+  @@index([sentAt])
+  @@index([repliedAt])
+  @@index([bounced])
+}
 
 model EmailQueue {
   id           String          @id @default(cuid())
@@ -289,18 +340,17 @@ model EmailQueue {
   retryCount   Int @default(0)
 
   createdAt DateTime @default(now())
-}
 
-enum EmailQueueStatus {
-  PENDING
-  SENT
-  FAILED
-  CANCELLED  // when lead replies — pending follow-ups get cancelled
+  // Indexes for better query performance
+  @@index([campaignId])
+  @@index([leadId])
+  @@index([mailboxId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([status, retryCount])
+  @@index([createdAt])
 }
-
-// ─────────────────────────────────────────
-// REPLY (incoming from lead)
-// ─────────────────────────────────────────
 
 model Reply {
   id        String   @id @default(cuid())
@@ -318,11 +368,16 @@ model Reply {
   isRead      Boolean @default(false)
 
   createdAt DateTime @default(now())
-}
 
-// ─────────────────────────────────────────
-// CONVERSATION (full thread — sent + received)
-// ─────────────────────────────────────────
+  // Indexes for better query performance
+  @@index([leadId])
+  @@index([mailboxId])
+  @@index([receivedAt])
+  @@index([isRead])
+  @@index([fromEmail])
+  @@index([leadId, receivedAt])
+  @@index([mailboxId, receivedAt])
+}
 
 model Conversation {
   id     String @id @default(cuid())
@@ -334,11 +389,11 @@ model Conversation {
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
-}
 
-// ─────────────────────────────────────────
-// NOTIFICATION
-// ─────────────────────────────────────────
+  // Indexes for better query performance
+  @@index([leadId])
+  @@index([updatedAt])
+}
 
 model Notification {
   id         String           @id @default(cuid())
@@ -354,13 +409,15 @@ model Notification {
   isRead     Boolean @default(false)
 
   createdAt  DateTime @default(now())
-}
 
-enum NotificationType {
-  REPLY_RECEIVED
-  FOLLOWUP_SENT
-  CAMPAIGN_COMPLETED
-  LEAD_BOUNCED
-  CAMPAIGN_PAUSED
-  AI_ENRICHMENT_DONE
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([leadId])
+  @@index([campaignId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([userId, type])
 }
