@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -58,7 +60,7 @@ export function CreateCampaignDialog() {
   const { data: templatesData } = useGetTemplatesQuery({});
 
   const form = useForm<CreateCampaignFormValues>({
-    resolver: zodResolver(createCampaignSchema),
+    resolver: zodResolver(createCampaignSchema) as unknown as Resolver<CreateCampaignFormValues>,
     defaultValues: {
       name: "",
       mailboxId: "",
@@ -119,8 +121,8 @@ export function CreateCampaignDialog() {
       <DialogTrigger asChild>
         <Button size="sm">Create Campaign</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-screen overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-[860px]">
+        <DialogHeader className="border-b px-6 py-5 pr-12">
           <DialogTitle>Create Email Campaign</DialogTitle>
           <DialogDescription>
             Set up a new email campaign with templates and follow-up timing.
@@ -128,51 +130,67 @@ export function CreateCampaignDialog() {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            {/* Campaign Name */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Campaign Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Q2 Outreach Campaign" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex max-h-[inherit] flex-col">
+            <div className="space-y-5 overflow-y-auto px-6 py-5">
+              <div className="rounded-lg border bg-card p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold">Campaign Setup</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Name the campaign and choose the mailbox that will send it.
+                  </p>
+                </div>
 
-            {/* Mailbox Selection */}
-            <FormField
-              control={form.control}
-              name="mailboxId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mailbox *</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a mailbox" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {mailboxes.map((mailbox) => (
-                        <SelectItem key={mailbox.id} value={mailbox.id}>
-                          {mailbox.label} ({mailbox.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Campaign Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Q2 Outreach Campaign" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            {/* Template Selection */}
-            <div className="space-y-4 p-4 bg-muted/40 rounded-lg">
-              <h3 className="font-semibold text-sm">Email Templates</h3>
+                  <FormField
+                    control={form.control}
+                    name="mailboxId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mailbox *</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a mailbox" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mailboxes.map((mailbox) => (
+                              <SelectItem key={mailbox.id} value={mailbox.id}>
+                                {mailbox.label} ({mailbox.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-card p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold">Email Templates</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Pick the initial email and optional follow-up sequence.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
               <FormField
                 control={form.control}
@@ -196,8 +214,8 @@ export function CreateCampaignDialog() {
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
 
               <FormField
                 control={form.control}
@@ -225,8 +243,8 @@ export function CreateCampaignDialog() {
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
 
               <FormField
                 control={form.control}
@@ -254,8 +272,8 @@ export function CreateCampaignDialog() {
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
 
               <FormField
                 control={form.control}
@@ -283,13 +301,18 @@ export function CreateCampaignDialog() {
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
+                </div>
             </div>
 
-            {/* Send Window and Timing */}
-            <div className="space-y-4 p-4 bg-muted/40 rounded-lg">
-              <h3 className="font-semibold text-sm">Timing & Schedule</h3>
+              <div className="rounded-lg border bg-card p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold">Timing & Schedule</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Control when emails are sent and how long each follow-up waits.
+                  </p>
+                </div>
 
               <FormField
                 control={form.control}
@@ -305,10 +328,10 @@ export function CreateCampaignDialog() {
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="followup1Days"
@@ -350,9 +373,9 @@ export function CreateCampaignDialog() {
                 />
               </div>
             </div>
+            </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
@@ -365,7 +388,7 @@ export function CreateCampaignDialog() {
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isLoading ? "Creating..." : "Create Campaign"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

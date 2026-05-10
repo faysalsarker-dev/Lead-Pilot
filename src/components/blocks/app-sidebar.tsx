@@ -16,6 +16,7 @@ import {
 import {
   LayoutDashboardIcon,
   UsersIcon,
+  Globe2Icon,
   MegaphoneIcon,
   FileTextIcon,
   InboxIcon,
@@ -71,6 +72,12 @@ const data = {
       title: "Leads",
       url: "/leads",
       icon: <UsersIcon />,
+      badge: null,
+    },
+    {
+      title: "Generate Leads",
+      url: "/generate-leads",
+      icon: <Globe2Icon />,
       badge: null,
     },
     {

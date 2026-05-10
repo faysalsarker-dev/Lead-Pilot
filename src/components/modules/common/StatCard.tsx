@@ -1,7 +1,9 @@
 "use client";
 
+import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StatCardProps {
   title: string;
@@ -13,6 +15,7 @@ interface StatCardProps {
   };
   icon?: React.ReactNode;
   className?: string;
+  accentClassName?: string;
 }
 
 export function StatCard({
@@ -22,24 +25,41 @@ export function StatCard({
   trend,
   icon,
   className,
+  accentClassName,
 }: StatCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card
+      className={cn(
+        "group overflow-hidden border-border/70 bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md",
+        className
+      )}
+    >
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium leading-none text-muted-foreground">
           {title}
         </CardTitle>
-        {icon && <div className="text-2xl">{icon}</div>}
+        {icon && (
+          <div
+            className={cn(
+              "flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-muted/80",
+              accentClassName
+            )}
+          >
+            {icon}
+          </div>
+        )}
       </CardHeader>
-      <CardContent>
-        <div className="space-y-1">
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
+      <CardContent className="pt-0">
+        <div className="space-y-2">
+          <div className="text-3xl font-semibold tracking-tight tabular-nums">
+            {value}
+          </div>
           {description && (
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className="text-xs leading-5 text-muted-foreground">{description}</p>
           )}
           {trend && (
             <div
-              className={`flex items-center text-xs font-medium ${
+              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                 trend.isPositive ? "text-green-600" : "text-red-600"
               }`}
             >
@@ -87,7 +107,7 @@ interface GridProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
-  columns?: 1 | 2 | 3 | 4;
+  columns?: 1 | 2 | 3 | 4 | 5;
   gap?: "sm" | "md" | "lg";
 }
 
@@ -103,6 +123,7 @@ export function StatsGrid({
     2: "md:grid-cols-2",
     3: "md:grid-cols-3",
     4: "md:grid-cols-4",
+    5: "sm:grid-cols-2 lg:grid-cols-5",
   }[columns];
 
   const gapClass = {

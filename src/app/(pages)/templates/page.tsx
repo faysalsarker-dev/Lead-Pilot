@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useGetTemplatesQuery } from "@/redux/hooks";
+import { useGetTemplatesQuery, useDeleteTemplateMutation } from "@/redux/hooks";
 import { CreateTemplateDialog } from "@/components/modules/templates/CreateTemplateDialog";
+import { EditTemplateDialog } from "@/components/modules/templates/EditTemplateDialog";
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FileText, Copy, Edit, Trash2, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
 
 const ALL_TEMPLATE_TYPES = "ALL_TEMPLATE_TYPES";
 type TemplateTypeFilter = typeof ALL_TEMPLATE_TYPES | "INITIAL" | "FOLLOWUP_1" | "FOLLOWUP_2" | "FINAL";
@@ -38,6 +40,7 @@ export default function TemplatesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [typeFilter, setTypeFilter] = useState<TemplateTypeFilter>(ALL_TEMPLATE_TYPES);
+  const [deleteTemplate] = useDeleteTemplateMutation();
 
   const { data: templatesData, isLoading } = useGetTemplatesQuery({
     page,
@@ -160,68 +163,89 @@ export default function TemplatesPage() {
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredTemplates.length > 0 ? (
-          filteredTemplates.map((template) => (
-            <Card key={template.id} className="flex flex-col">
-              <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                <div className="flex-1">
-                  <CardTitle className="text-base">{template.name}</CardTitle>
-                  <CardDescription className="mt-1">
-                    <TemplateTypeBadge type={template.type} />
-                  </CardDescription>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">
-                      Subject A
-                    </p>
-                    <p className="text-sm line-clamp-2">{template.subjectA}</p>
+          filteredTemplates.map((template) => {
+            async function handleDelete() {
+              try {
+                await deleteTemplate(template.id).unwrap();
+                toast.success("Template deleted successfully");
+              } catch (error: any) {
+                toast.error(error?.data?.message || "Failed to delete template");
+              }
+            }
+
+            return (
+              <Card key={template.id} className="flex flex-col">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{template.name}</CardTitle>
+                    <CardDescription className="mt-1">
+                      <TemplateTypeBadge type={template.type} />
+                    </CardDescription>
                   </div>
-                  {template.subjectB && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          navigator.clipboard.writeText(template.id);
+                          toast.success("Template ID copied");
+                        }}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy ID
+                      </DropdownMenuItem>
+                      <EditTemplateDialog template={template}>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                      </EditTemplateDialog>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleDelete}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground mb-1">
-                        Subject B
+                        Subject A
                       </p>
-                      <p className="text-sm line-clamp-2">{template.subjectB}</p>
+                      <p className="text-sm line-clamp-2">{template.subjectA}</p>
                     </div>
-                  )}
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">
-                      Body
-                    </p>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {template.body}
-                    </p>
+                    {template.subjectB && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">
+                          Subject B
+                        </p>
+                        <p className="text-sm line-clamp-2">{template.subjectB}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">
+                        Body
+                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-3">
+                        {template.body}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         ) : (
           <div className="col-span-full text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-3" />

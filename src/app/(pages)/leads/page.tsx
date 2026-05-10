@@ -1,10 +1,10 @@
-
 "use client";
 
-import { useState, useMemo } from "react";
-import { useGetLeadsQuery } from "@/redux/hooks";
+import { useMemo, useState } from "react";
 import { CreateLeadDialog } from "@/components/modules/leads/CreateLeadDialog";
 import { LeadsTable } from "@/components/modules/leads/LeadsDataTable";
+import { Pagination } from "@/components/modules/common/Pagination";
+import { StatCard, StatsGrid } from "@/components/modules/common/StatCard";
 import {
   Card,
   CardContent,
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,10 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard, StatsGrid } from "@/components/modules/common/StatCard";
-import { Upload, Search, Filter, Users, MessageSquare, Zap, TrendingUp } from "lucide-react";
+import { useGetLeadsQuery } from "@/redux/hooks";
+import { Filter, MessageSquare, Search, TrendingUp, Upload, Users, Zap } from "lucide-react";
 import type { Lead } from "@/redux/features/leads/leads.api";
 
 const ALL_STATUSES = "ALL_STATUSES";
@@ -33,7 +33,9 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Lead["status"] | typeof ALL_STATUSES>(ALL_STATUSES);
+  const [statusFilter, setStatusFilter] = useState<Lead["status"] | typeof ALL_STATUSES>(
+    ALL_STATUSES
+  );
   const [aiEnrichedFilter, setAiEnrichedFilter] = useState<
     typeof ALL_AI_ENRICHMENT | "enriched" | "not-enriched"
   >(ALL_AI_ENRICHMENT);
@@ -43,19 +45,26 @@ export default function LeadsPage() {
     limit,
     search: searchQuery || undefined,
     status: statusFilter === ALL_STATUSES ? undefined : statusFilter,
-    aiEnriched: aiEnrichedFilter === ALL_AI_ENRICHMENT ? undefined : aiEnrichedFilter === "enriched",
+    aiEnriched:
+      aiEnrichedFilter === ALL_AI_ENRICHMENT
+        ? undefined
+        : aiEnrichedFilter === "enriched",
   });
 
   const leads = useMemo(() => leadsData?.data || [], [leadsData?.data]);
-  const pagination = leadsData?.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 };
+  const pagination = leadsData?.pagination || {
+    total: 0,
+    page: 1,
+    limit,
+    totalPages: 1,
+  };
 
-  // Calculate stats
   const stats = useMemo(() => {
     const total = pagination.total;
-    const contacted = leads.filter((l) => l.status !== "NEW").length;
-    const converted = leads.filter((l) => l.status === "CONVERTED").length;
-    const replied = leads.filter((l) => l.hasReplied).length;
-    const enriched = leads.filter((l) => l.aiEnriched).length;
+    const contacted = leads.filter((lead) => lead.status !== "NEW").length;
+    const converted = leads.filter((lead) => lead.status === "CONVERTED").length;
+    const replied = leads.filter((lead) => lead.hasReplied).length;
+    const enriched = leads.filter((lead) => lead.aiEnriched).length;
 
     return {
       total,
@@ -67,9 +76,12 @@ export default function LeadsPage() {
     };
   }, [leads, pagination.total]);
 
+  const getPercent = (value: number) =>
+    stats.total > 0 ? `${Math.round((value / stats.total) * 100)}%` : "0%";
+
   if (isLoading) {
     return (
-      <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -77,16 +89,15 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-none p-6 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
           <p className="text-muted-foreground mt-2">
             Manage and track all your outreach prospects
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="gap-2">
             <Upload className="h-4 w-4" />
             Import CSV
@@ -95,61 +106,64 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <StatsGrid title="Overview" columns={5} gap="md">
         <StatCard
           title="Total Leads"
           value={stats.total}
-          icon={<Users className="h-5 w-5 text-blue-500" />}
+          icon={<Users className="h-5 w-5" />}
+          accentClassName="bg-blue-50 text-blue-600"
         />
         <StatCard
           title="Contacted"
           value={stats.contacted}
-          icon={<MessageSquare className="h-5 w-5 text-purple-500" />}
-          description={`${Math.round((stats.contacted / stats.total) * 100)}% of total`}
+          icon={<MessageSquare className="h-5 w-5" />}
+          accentClassName="bg-violet-50 text-violet-600"
+          description={`${getPercent(stats.contacted)} of total`}
         />
         <StatCard
           title="Converted"
           value={stats.converted}
-          icon={<TrendingUp className="h-5 w-5 text-green-500" />}
+          icon={<TrendingUp className="h-5 w-5" />}
+          accentClassName="bg-emerald-50 text-emerald-600"
           description={`${stats.conversionRate}% conversion rate`}
         />
         <StatCard
           title="Replied"
           value={stats.replied}
-          icon={<MessageSquare className="h-5 w-5 text-indigo-500" />}
-          description={`${Math.round((stats.replied / stats.total) * 100)}% reply rate`}
+          icon={<MessageSquare className="h-5 w-5" />}
+          accentClassName="bg-indigo-50 text-indigo-600"
+          description={`${getPercent(stats.replied)} reply rate`}
         />
         <StatCard
           title="AI Enriched"
           value={stats.enriched}
-          icon={<Zap className="h-5 w-5 text-yellow-500" />}
-          description={`${Math.round((stats.enriched / stats.total) * 100)}% enriched`}
+          icon={<Zap className="h-5 w-5" />}
+          accentClassName="bg-amber-50 text-amber-600"
+          description={`${getPercent(stats.enriched)} enriched`}
         />
       </StatsGrid>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4" />
             Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 Search
               </label>
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or business..."
                   className="pl-8"
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
                     setPage(1);
                   }}
                 />
@@ -157,7 +171,7 @@ export default function LeadsPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 Status
               </label>
               <Select
@@ -183,13 +197,15 @@ export default function LeadsPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 AI Enrichment
               </label>
               <Select
                 value={aiEnrichedFilter}
                 onValueChange={(value) => {
-                  setAiEnrichedFilter(value as typeof ALL_AI_ENRICHMENT | "enriched" | "not-enriched");
+                  setAiEnrichedFilter(
+                    value as typeof ALL_AI_ENRICHMENT | "enriched" | "not-enriched"
+                  );
                   setPage(1);
                 }}
               >
@@ -205,10 +221,16 @@ export default function LeadsPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 Rows per page
               </label>
-              <Select value={String(limit)} onValueChange={(val) => setLimit(Number(val))}>
+              <Select
+                value={String(limit)}
+                onValueChange={(value) => {
+                  setLimit(Number(value));
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -224,17 +246,22 @@ export default function LeadsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Leads ({pagination.total} total)
-          </CardTitle>
-          <CardDescription>
-            Page {page} of {pagination.totalPages}
-          </CardDescription>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="border-b bg-muted/20">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Leads</CardTitle>
+              <CardDescription>
+                {pagination.total} total prospects across {pagination.totalPages} page
+                {pagination.totalPages === 1 ? "" : "s"}
+              </CardDescription>
+            </div>
+            {isFetching && (
+              <span className="text-sm text-muted-foreground">Refreshing...</span>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           <LeadsTable
             leads={leads}
             isLoading={isFetching}
@@ -246,46 +273,14 @@ export default function LeadsPage() {
             }}
           />
         </CardContent>
+        <Pagination
+          page={page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          limit={limit}
+          onPageChange={setPage}
+        />
       </Card>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing page {page} of {pagination.totalPages}
-        </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-          >
-            Previous
-          </Button>
-          {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-            const pageNum = page > 3 ? page - 2 + i : i + 1;
-            if (pageNum > pagination.totalPages) return null;
-            return (
-              <Button
-                key={pageNum}
-                variant={pageNum === page ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPage(pageNum)}
-              >
-                {pageNum}
-              </Button>
-            );
-          })}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-            disabled={page === pagination.totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

@@ -5,10 +5,9 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  useReactTable,
-  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -29,13 +28,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MoreHorizontal, Copy, Edit, Play, Pause, Trash2 } from "lucide-react";
-import { 
+import { Copy, Edit, MoreHorizontal, Pause, Play, Trash2 } from "lucide-react";
+import {
   useDeleteCampaignMutation,
   useLaunchCampaignMutation,
   usePauseCampaignMutation,
 } from "@/redux/hooks";
 import { toast } from "sonner";
+import { EditCampaignDialog } from "./EditCampaignDialog";
 import type { Campaign } from "@/redux/features/campaigns/campaigns.api";
 
 interface CampaignsTableProps {
@@ -46,13 +46,34 @@ interface CampaignsTableProps {
 }
 
 const statusColors: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-800",
-  RUNNING: "bg-green-100 text-green-800",
-  PAUSED: "bg-yellow-100 text-yellow-800",
-  COMPLETED: "bg-blue-100 text-blue-800",
+  DRAFT: "border-slate-200 bg-slate-50 text-slate-700",
+  RUNNING: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  PAUSED: "border-amber-200 bg-amber-50 text-amber-700",
+  COMPLETED: "border-blue-200 bg-blue-50 text-blue-700",
 };
 
-export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: CampaignsTableProps) {
+function getErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "message" in error.data &&
+    typeof error.data.message === "string"
+  ) {
+    return error.data.message;
+  }
+
+  return fallback;
+}
+
+export function CampaignsTable({
+  campaigns,
+  onEdit,
+  onDelete,
+  isLoading,
+}: CampaignsTableProps) {
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
   const [deleteCampaign] = useDeleteCampaignMutation();
@@ -110,11 +131,12 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
         const sent = row.original.sentCount || 0;
         const total = row.original.leadCount || 0;
         const percentage = total > 0 ? Math.round((sent / total) * 100) : 0;
+
         return (
           <div className="flex items-center gap-2">
-            <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
+            <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
+                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
                 style={{ width: `${percentage}%` }}
               />
             </div>
@@ -128,7 +150,7 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
       header: "Launched",
       cell: ({ row }) => {
         const date = row.original.launchedAt;
-        if (!date) return <span className="text-muted-foreground">—</span>;
+        if (!date) return <span className="text-muted-foreground">-</span>;
         return <span className="text-sm">{new Date(date).toLocaleDateString()}</span>;
       },
     },
@@ -142,8 +164,8 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
             await deleteCampaign(campaign.id).unwrap();
             toast.success("Campaign deleted successfully");
             onDelete?.(campaign.id);
-          } catch (error: any) {
-            toast.error(error?.data?.message || "Failed to delete campaign");
+          } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to delete campaign"));
           }
         }
 
@@ -151,8 +173,8 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
           try {
             await launchCampaign(campaign.id).unwrap();
             toast.success("Campaign launched");
-          } catch (error: any) {
-            toast.error(error?.data?.message || "Failed to launch campaign");
+          } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to launch campaign"));
           }
         }
 
@@ -160,8 +182,8 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
           try {
             await pauseCampaign(campaign.id).unwrap();
             toast.success("Campaign paused");
-          } catch (error: any) {
-            toast.error(error?.data?.message || "Failed to pause campaign");
+          } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "Failed to pause campaign"));
           }
         }
 
@@ -184,10 +206,17 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
                 <Copy className="mr-2 h-4 w-4" />
                 Copy ID
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit?.(campaign)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
+              <EditCampaignDialog campaign={campaign}>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onEdit?.(campaign);
+                  }}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              </EditCampaignDialog>
 
               {campaign.status === "DRAFT" && (
                 <DropdownMenuItem onClick={handleLaunch}>
@@ -225,19 +254,21 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border">
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/45">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-12">
+                  <TableHead
+                    key={header.id}
+                    className="h-11 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -249,9 +280,13 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className="h-14"
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="px-4">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -259,8 +294,13 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No campaigns found.
+                <TableCell colSpan={columns.length} className="h-32 text-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">No campaigns found</p>
+                    <p className="text-sm text-muted-foreground">
+                      Try adjusting the filters or create a new campaign.
+                    </p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -268,33 +308,14 @@ export function CampaignsTable({ campaigns, onEdit, onDelete, isLoading }: Campa
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <div className="text-sm text-muted-foreground">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
           {table.getFilteredRowModel().rows.length} row(s) selected.
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
+        {isLoading && (
+          <span className="text-sm text-muted-foreground">Refreshing...</span>
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,14 @@ export interface Campaign {
   finalDays?: number;
   leadCount?: number;
   sentCount?: number;
+  launchedAt?: string;
+  subject?: string;
+  bodyTemplate?: string;
+  sendWindowStart?: number;
+  sendWindowEnd?: number;
+  followupDay1?: number;
+  followupDay2?: number;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +41,15 @@ export interface CreateCampaignRequest {
   leadIds?: string[];
 }
 
-export interface UpdateCampaignRequest extends Partial<CreateCampaignRequest> {}
+export type UpdateCampaignRequest = Partial<CreateCampaignRequest> & {
+  subject?: string;
+  bodyTemplate?: string;
+  sendWindowStart?: number;
+  sendWindowEnd?: number;
+  followupDay1?: number;
+  followupDay2?: number;
+  notes?: string;
+};
 
 export interface CampaignListResponse {
   success: boolean;

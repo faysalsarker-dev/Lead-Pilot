@@ -12,6 +12,8 @@ export interface Lead {
   status: "NEW" | "CONTACTED" | "ACTIVE" | "INTERESTED" | "CONVERTED" | "REJECTED";
   isActive: boolean;
   isInterested: boolean;
+  hasReplied?: boolean;
+  aiEnriched?: boolean;
   aiScore?: number;
   notes?: string;
   createdAt: string;

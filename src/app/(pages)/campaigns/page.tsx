@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useGetCampaignsQuery } from "@/redux/hooks";
 import { CreateCampaignDialog } from "@/components/modules/campaigns/CreateCampaignDialog";
 import { CampaignsTable } from "@/components/modules/campaigns/CampaignsDataTable";
+import { Pagination } from "@/components/modules/common/Pagination";
+import { StatCard, StatsGrid } from "@/components/modules/common/StatCard";
 import {
   Card,
   CardContent,
@@ -11,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -20,16 +20,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard, StatsGrid } from "@/components/modules/common/StatCard";
-import { Activity, BookOpen, CheckCircle2 } from "lucide-react";
+import { useGetCampaignsQuery } from "@/redux/hooks";
+import { Activity, BookOpen, CheckCircle2, Filter } from "lucide-react";
 
 const ALL_CAMPAIGN_STATUSES = "ALL_CAMPAIGN_STATUSES";
-type CampaignStatusFilter = typeof ALL_CAMPAIGN_STATUSES | "DRAFT" | "RUNNING" | "PAUSED" | "COMPLETED";
+type CampaignStatusFilter =
+  | typeof ALL_CAMPAIGN_STATUSES
+  | "DRAFT"
+  | "RUNNING"
+  | "PAUSED"
+  | "COMPLETED";
 
 export default function CampaignsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [statusFilter, setStatusFilter] = useState<CampaignStatusFilter>(ALL_CAMPAIGN_STATUSES);
+  const [statusFilter, setStatusFilter] =
+    useState<CampaignStatusFilter>(ALL_CAMPAIGN_STATUSES);
 
   const { data: campaignsData, isLoading, isFetching } = useGetCampaignsQuery({
     page,
@@ -38,11 +44,16 @@ export default function CampaignsPage() {
   });
 
   const campaigns = campaignsData?.data || [];
-  const pagination = campaignsData?.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 };
+  const pagination = campaignsData?.pagination || {
+    total: 0,
+    page: 1,
+    limit,
+    totalPages: 1,
+  };
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <div className="w-full p-6 space-y-6">
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -51,15 +62,14 @@ export default function CampaignsPage() {
 
   const stats = {
     total: pagination.total,
-    active: campaigns.filter((c) => c.status === "RUNNING").length,
-    drafts: campaigns.filter((c) => c.status === "DRAFT").length,
-    completed: campaigns.filter((c) => c.status === "COMPLETED").length,
+    active: campaigns.filter((campaign) => campaign.status === "RUNNING").length,
+    drafts: campaigns.filter((campaign) => campaign.status === "DRAFT").length,
+    completed: campaigns.filter((campaign) => campaign.status === "COMPLETED").length,
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-none p-6 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Campaigns</h1>
           <p className="text-muted-foreground mt-2">
@@ -69,42 +79,47 @@ export default function CampaignsPage() {
         <CreateCampaignDialog />
       </div>
 
-      {/* Stats Grid */}
       <StatsGrid title="Campaign Overview" columns={4} gap="md">
         <StatCard
           title="Total Campaigns"
           value={stats.total}
-          icon={<BookOpen className="h-5 w-5 text-blue-500" />}
+          icon={<BookOpen className="h-5 w-5" />}
+          accentClassName="bg-blue-50 text-blue-600"
         />
         <StatCard
           title="Active"
           value={stats.active}
-          icon={<Activity className="h-5 w-5 text-green-500" />}
+          icon={<Activity className="h-5 w-5" />}
+          accentClassName="bg-emerald-50 text-emerald-600"
           description="Currently running"
         />
         <StatCard
           title="Draft"
           value={stats.drafts}
-          icon={<BookOpen className="h-5 w-5 text-slate-500" />}
+          icon={<BookOpen className="h-5 w-5" />}
+          accentClassName="bg-slate-100 text-slate-700"
           description="Awaiting launch"
         />
         <StatCard
           title="Completed"
           value={stats.completed}
-          icon={<CheckCircle2 className="h-5 w-5 text-purple-500" />}
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          accentClassName="bg-violet-50 text-violet-600"
           description="Finished campaigns"
         />
       </StatsGrid>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Filter className="h-4 w-4" />
+            Filters
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:max-w-3xl">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 Status
               </label>
               <Select
@@ -126,11 +141,17 @@ export default function CampaignsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-muted-foreground">
                 Rows per page
               </label>
-              <Select value={String(limit)} onValueChange={(val) => setLimit(Number(val))}>
+              <Select
+                value={String(limit)}
+                onValueChange={(value) => {
+                  setLimit(Number(value));
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -146,17 +167,22 @@ export default function CampaignsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Campaigns ({pagination.total} total)
-          </CardTitle>
-          <CardDescription>
-            Page {page} of {pagination.totalPages}
-          </CardDescription>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="border-b bg-muted/20">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Campaigns</CardTitle>
+              <CardDescription>
+                {pagination.total} total campaigns across {pagination.totalPages} page
+                {pagination.totalPages === 1 ? "" : "s"}
+              </CardDescription>
+            </div>
+            {isFetching && (
+              <span className="text-sm text-muted-foreground">Refreshing...</span>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           <CampaignsTable
             campaigns={campaigns}
             isLoading={isFetching}
@@ -168,46 +194,14 @@ export default function CampaignsPage() {
             }}
           />
         </CardContent>
+        <Pagination
+          page={page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          limit={limit}
+          onPageChange={setPage}
+        />
       </Card>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing page {page} of {pagination.totalPages}
-        </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-          >
-            Previous
-          </Button>
-          {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-            const pageNum = page > 3 ? page - 2 + i : i + 1;
-            if (pageNum > pagination.totalPages) return null;
-            return (
-              <Button
-                key={pageNum}
-                variant={pageNum === page ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPage(pageNum)}
-              >
-                {pageNum}
-              </Button>
-            );
-          })}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-            disabled={page === pagination.totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
