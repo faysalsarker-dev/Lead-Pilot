@@ -2,7 +2,7 @@ import axios, { type AxiosRequestConfig } from "axios";
 
 // Create axios instance
 export const axiosInstance = axios.create({
-  baseURL: process.env.VITE_API_URL || "http://localhost:3000/api/v1",
+  baseURL: process.env.VITE_API_URL || "/api",
   withCredentials: true, // cookies are sent automatically
 });
 

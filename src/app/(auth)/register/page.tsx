@@ -5,8 +5,8 @@ const RegisterPage = () => {
   return (
     <AuthShell
       eyebrow="Lead Pilot"
-      title="Grow your cold journey"
-      description="Create your workspace and keep cold outreach organized from the first lead to the final follow-up."
+      title="Create account"
+      description="Fill in the form to get started."
     >
       <RegisterForm />
     </AuthShell>

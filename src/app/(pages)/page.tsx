@@ -8,36 +8,27 @@ import { LeadSources } from "@/components/modules/overview/LeadSources";
 import { RecentReplies } from "@/components/modules/overview/RecentReplies";
 import { WorkTypeSplit } from "@/components/modules/overview/WorkTypeSplit";
 
-
 export default function DashboardPage() {
   return (
-    <div className="p-6 max-w-[1200px] mx-auto">
-
-      {/* Greeting + alert bar */}
+    <div className="w-full max-w-none bg-slate-50/60 p-6">
       <DashboardHeader />
-
-      {/* Row 1 — 6 KPI stat cards */}
       <KpiGrid />
 
-      {/* Row 2 — Pipeline funnel + Activity chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+      <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <LeadPipeline />
         <ActivityChart />
       </div>
 
-      {/* Row 3 — Campaign table + Recent replies */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-3 mb-3">
+      <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
         <CampaignTable />
         <RecentReplies />
       </div>
 
-      {/* Row 4 — Work type split + Lead sources + Follow-ups */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <WorkTypeSplit />
         <LeadSources />
         <FollowUpsDue />
       </div>
-
     </div>
-  )
+  );
 }

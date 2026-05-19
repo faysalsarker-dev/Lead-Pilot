@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BriefcaseBusiness, Eye, EyeOff, Loader2, Mail, ShieldCheck, User } from "lucide-react";
+import { BriefcaseBusiness, Eye, EyeOff, Loader2, LockKeyhole, Mail, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -88,18 +88,8 @@ const RegisterForm = () => {
   };
 
   return (
-    <Card className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
-      <CardContent className="p-6 sm:p-8">
-        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-5">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">Workspace profile</p>
-            <p className="mt-1 text-xs text-slate-500">Set up the operator account for your team.</p>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-        </div>
-
+    <Card className="overflow-hidden rounded-xl border  bg-white shadow-lg">
+      <CardContent className="p-5 sm:p-7">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
@@ -112,7 +102,7 @@ const RegisterForm = () => {
                     <div className="relative">
                       <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
-                        placeholder="Faysal Ahmed"
+                        placeholder="Enter Your Name"
                         autoComplete="name"
                         className="h-11 rounded-lg border-slate-200 bg-slate-50/70 pl-10 transition-colors focus:bg-white"
                         {...field}
@@ -135,7 +125,7 @@ const RegisterForm = () => {
                       <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         type="email"
-                        placeholder="you@leadpilot.com"
+                        placeholder="Enter Your Email"
                         autoComplete="email"
                         className="h-11 rounded-lg border-slate-200 bg-slate-50/70 pl-10 transition-colors focus:bg-white"
                         {...field}
@@ -179,11 +169,12 @@ const RegisterForm = () => {
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="********"
+                        placeholder="Create a password"
                         autoComplete="new-password"
-                        className="h-11 rounded-lg border-slate-200 bg-slate-50/70 pr-10 transition-colors focus:bg-white"
+                        className="h-11 rounded-lg border-slate-200 bg-slate-50/70 pl-10 pr-10 transition-colors focus:bg-white"
                         {...field}
                       />
+                      <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <button
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
@@ -206,7 +197,7 @@ const RegisterForm = () => {
 
             <Button
               type="submit"
-              className="h-11 w-full rounded-lg bg-[#172554] font-semibold shadow-lg shadow-blue-950/10 hover:bg-[#1e3a8a]"
+              className="h-11 w-full rounded-lg  font-semibold shadow-lg shadow-slate-950/10 "
               disabled={submitting}
             >
               {submitting ? (

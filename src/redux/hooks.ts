@@ -12,6 +12,7 @@ export const useAppSelector = useSelector.withTypes<RootState>();
 export {
   useGetUserProfileQuery,
   useUpdateUserProfileMutation,
+  useUpdateUserProfileFormMutation,
   useGetUserSettingsQuery,
   useUpdateUserSettingsMutation,
   useGetUnreadCountQuery,

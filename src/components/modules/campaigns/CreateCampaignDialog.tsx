@@ -375,7 +375,7 @@ export function CreateCampaignDialog() {
             </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="border-t px-6 py-5 mb-10">
               <Button
                 type="button"
                 variant="outline"

@@ -5,8 +5,8 @@ const LoginPage = () => {
   return (
     <AuthShell
       eyebrow="Lead Pilot"
-      title="Welcome back to work"
-      description="Sign in and continue organizing your outreach, leads, and follow-ups."
+      title="Sign in"
+      description="Enter your credentials to continue."
     >
       <LoginForm />
     </AuthShell>

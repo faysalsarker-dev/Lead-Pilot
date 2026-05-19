@@ -1,32 +1,32 @@
 import { baseApi } from "@/redux/baseApi";
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  autoEnrich?: boolean;
-  defaultSendWindow?: string;
-  yourService?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserSettings {
-  autoEnrich: boolean;
-  defaultSendWindow: string;
-  webPushEnabled: boolean;
-  timezone?: string;
-}
-
-export interface UnreadCount {
-  unreadNotifications: number;
-  unreadReplies: number;
-}
+import type { User } from "@/app/generated/prisma/browser";
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get user profile
-    getUserProfile: builder.query<{ data: UserProfile }, void>({
+    getUserProfile: builder.query<
+      {
+        data: Pick<
+          User,
+          | "id"
+          | "email"
+          | "name"
+          | "image"
+          | "service"
+          | "isActive"
+          | "status"
+          | "currentStreak"
+          | "longestStreak"
+          | "lastLoggedInAt"
+          | "autoEnrich"
+          | "defaultSendWindow"
+          | "webPushEnabled"
+          | "createdAt"
+          | "updatedAt"
+        >;
+      },
+      void
+    >({
       query: () => ({
         url: "/users",
         method: "GET",
@@ -36,8 +36,59 @@ export const usersApi = baseApi.injectEndpoints({
 
     // Update user profile
     updateUserProfile: builder.mutation<
-      { data: UserProfile },
-      Partial<UserProfile>
+      {
+        data: Pick<
+          User,
+          | "id"
+          | "email"
+          | "name"
+          | "image"
+          | "service"
+          | "isActive"
+          | "status"
+          | "currentStreak"
+          | "longestStreak"
+          | "lastLoggedInAt"
+          | "autoEnrich"
+          | "defaultSendWindow"
+          | "webPushEnabled"
+          | "createdAt"
+          | "updatedAt"
+        >;
+      },
+      Partial<Pick<User, "name" | "image" | "service">>
+    >({
+      query: (data) => ({
+        url: "/users",
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: ["Users"],
+    }),
+
+    // Update user profile with an uploaded image file
+    updateUserProfileForm: builder.mutation<
+      {
+        data: Pick<
+          User,
+          | "id"
+          | "email"
+          | "name"
+          | "image"
+          | "service"
+          | "isActive"
+          | "status"
+          | "currentStreak"
+          | "longestStreak"
+          | "lastLoggedInAt"
+          | "autoEnrich"
+          | "defaultSendWindow"
+          | "webPushEnabled"
+          | "createdAt"
+          | "updatedAt"
+        >;
+      },
+      FormData
     >({
       query: (data) => ({
         url: "/users",
@@ -48,7 +99,10 @@ export const usersApi = baseApi.injectEndpoints({
     }),
 
     // Get user settings
-    getUserSettings: builder.query<{ data: UserSettings }, void>({
+    getUserSettings: builder.query<
+      { data: Pick<User, "autoEnrich" | "defaultSendWindow" | "webPushEnabled"> },
+      void
+    >({
       query: () => ({
         url: "/users/settings",
         method: "GET",
@@ -58,8 +112,8 @@ export const usersApi = baseApi.injectEndpoints({
 
     // Update user settings
     updateUserSettings: builder.mutation<
-      { data: UserSettings },
-      Partial<UserSettings>
+      { data: Pick<User, "autoEnrich" | "defaultSendWindow" | "webPushEnabled"> },
+      Partial<Pick<User, "autoEnrich" | "defaultSendWindow" | "webPushEnabled">>
     >({
       query: (data) => ({
         url: "/users/settings",
@@ -70,7 +124,10 @@ export const usersApi = baseApi.injectEndpoints({
     }),
 
     // Get unread count
-    getUnreadCount: builder.query<{ data: UnreadCount }, void>({
+    getUnreadCount: builder.query<
+      { data: { unreadNotifications: number; unreadReplies: number } },
+      void
+    >({
       query: () => ({
         url: "/users/unread-count",
         method: "GET",
@@ -83,6 +140,7 @@ export const usersApi = baseApi.injectEndpoints({
 export const {
   useGetUserProfileQuery,
   useUpdateUserProfileMutation,
+  useUpdateUserProfileFormMutation,
   useGetUserSettingsQuery,
   useUpdateUserSettingsMutation,
   useGetUnreadCountQuery,

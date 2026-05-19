@@ -67,6 +67,25 @@ enum UserStatus {
   BLOCKED 
 }
 
+enum EnrichmentStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+enum LeadSource {
+  FACEBOOK
+  GOOGLE_MAPS
+  LINKEDIN
+  INSTAGRAM
+  TWITTER
+  REFERRAL
+  MANUAL
+  CSV_IMPORT
+  OTHER
+}
 
 // ============================================
 // MODELS
@@ -77,10 +96,15 @@ model User {
   email          String    @unique
   password   String
   name           String
+  image          String?
   service    String?   // e.g. "web development", "SEO"
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
   status         UserStatus?   // e.g. "active", "trial_expired", "paused_for_billing"
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastLoggedInAt    DateTime?
   // Settings
   autoEnrich          Boolean @default(true)   // auto-run Gemini on lead create
   defaultSendWindow   String  @default("09:00-11:00") // local time window

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CreateCampaignDialog } from "@/components/modules/campaigns/CreateCampaignDialog";
 import { CampaignsTable } from "@/components/modules/campaigns/CampaignsDataTable";
 import { Pagination } from "@/components/modules/common/Pagination";
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useGetCampaignsQuery } from "@/redux/hooks";
 import { Activity, BookOpen, CheckCircle2, Filter } from "lucide-react";
 
@@ -76,7 +78,12 @@ export default function CampaignsPage() {
             Create and manage email campaigns with automated follow-ups
           </p>
         </div>
-        <CreateCampaignDialog />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href="/campaigns/new">New Campaign</Link>
+          </Button>
+          <CreateCampaignDialog />
+        </div>
       </div>
 
       <StatsGrid title="Campaign Overview" columns={4} gap="md">

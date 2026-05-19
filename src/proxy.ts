@@ -7,6 +7,8 @@ export async function proxy(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
 
+
+  console.log(token, "token in proxy");
   const isAuthPage =
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname === "/register";
@@ -32,7 +34,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
- 
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
   ],
 };

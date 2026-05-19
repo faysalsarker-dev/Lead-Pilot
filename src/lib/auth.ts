@@ -6,6 +6,34 @@ import type { NextAuthOptions } from "next-auth";
 
 const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key";
 
+function getUtcDayStart(value: Date) {
+  return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+}
+
+function getNextStreak(currentStreak: number, longestStreak: number, lastLoggedInAt: Date | null) {
+  const now = new Date();
+  const today = getUtcDayStart(now);
+
+  if (!lastLoggedInAt) {
+    return {
+      currentStreak: 1,
+      longestStreak: Math.max(longestStreak, 1),
+      lastLoggedInAt: now,
+    };
+  }
+
+  const lastLoginDay = getUtcDayStart(lastLoggedInAt);
+  const daysSinceLastLogin = Math.floor((today - lastLoginDay) / 86_400_000);
+  const nextCurrentStreak =
+    daysSinceLastLogin === 0 ? Math.max(currentStreak, 1) : daysSinceLastLogin === 1 ? currentStreak + 1 : 1;
+
+  return {
+    currentStreak: nextCurrentStreak,
+    longestStreak: Math.max(longestStreak, nextCurrentStreak),
+    lastLoggedInAt: now,
+  };
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -35,6 +63,17 @@ export const authOptions: NextAuthOptions = {
         if (!isPasswordValid) {
           throw new Error("Invalid credentials");
         }
+
+        const streak = getNextStreak(
+          user.currentStreak,
+          user.longestStreak,
+          user.lastLoggedInAt
+        );
+
+        await prisma.user.update({
+          where: { id: user.id },
+          data: streak,
+        });
 
         return {
           id: user.id.toString(),

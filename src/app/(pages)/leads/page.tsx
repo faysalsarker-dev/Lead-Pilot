@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { CreateLeadDialog } from "@/components/modules/leads/CreateLeadDialog";
 import { LeadsTable } from "@/components/modules/leads/LeadsDataTable";
 import { Pagination } from "@/components/modules/common/Pagination";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
+import {  
   Select,
   SelectContent,
   SelectItem,
@@ -98,9 +99,11 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link href="/leads/import">
             <Upload className="h-4 w-4" />
             Import CSV
+            </Link>
           </Button>
           <CreateLeadDialog />
         </div>

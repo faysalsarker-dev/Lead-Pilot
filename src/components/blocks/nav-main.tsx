@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -10,7 +9,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { CirclePlusIcon, MailIcon } from "lucide-react"
 
 export function NavMain({
   items,
@@ -32,7 +30,6 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => {
 
-console.log("Current path:", pathname, " - Comparing with item URL:", item.url);
            const isActive = item.url === pathname;
 
             return (
