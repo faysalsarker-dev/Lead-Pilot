@@ -1,244 +1,292 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { FormEvent, useState, useId } from "react";
+import { Loader2, Plus } from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  BudgetRange,
+  LeadSource,
+  Priority,
+  Urgency,
+  WorkType,
+  type Lead,
+} from "@/app/generated/prisma/browser";
+
+import { useCreateLeadMutation } from "@/redux/hooks";
+
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateLeadMutation } from "@/redux/hooks";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const createLeadSchema = z.object({
-  name: z.string().min(1, "Name is required").min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  businessName: z.string().optional(),
-  businessType: z.string().optional(),
-  website: z.string().url("Invalid URL").optional().or(z.literal("")),
-  country: z.string().optional(),
-  timezone: z.string().optional(),
-  notes: z.string().optional(),
-});
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
-type CreateLeadFormValues = z.infer<typeof createLeadSchema>;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const OPTIONAL = "__optional__";
+
+type LeadSelectValue =
+  | Lead["source"]
+  | Lead["workType"]
+  | Lead["budgetRange"]
+  | Lead["urgency"]
+  | Lead["priority"];
+
+const emptyToUndefined = (v: FormDataEntryValue | null) => {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t || undefined;
+};
+
+const splitList = (v: FormDataEntryValue | null) =>
+  (typeof v === "string" ? v : "")
+    .split(/[\n,]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+/* ---------------- UI BUILDING BLOCKS ---------------- */
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function EnumSelect<T extends LeadSelectValue>({
+  label,
+  value,
+  values,
+  onChange,
+}: any) {
+  const id = useId();
+
+  const list = Object.values(values).filter(Boolean) as string[];
+
+  return (
+    <Field label={label}>
+      <Select value={value ?? OPTIONAL} onValueChange={onChange}>
+        <SelectTrigger id={id} className="h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={OPTIONAL}>Not set</SelectItem>
+          {list.map((v) => (
+            <SelectItem key={v} value={v}>
+              {v.replaceAll("_", " ")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
+/* ---------------- MAIN COMPONENT ---------------- */
 
 export function CreateLeadDialog() {
   const [open, setOpen] = useState(false);
+
+  const [source, setSource] = useState<Lead["source"]>();
+  const [workType, setWorkType] = useState<Lead["workType"]>();
+  const [budgetRange, setBudgetRange] = useState<Lead["budgetRange"]>();
+  const [urgency, setUrgency] = useState<Lead["urgency"]>();
+  const [priority, setPriority] = useState<Lead["priority"]>(Priority.MEDIUM);
+
   const [createLead, { isLoading }] = useCreateLeadMutation();
 
-  const form = useForm<CreateLeadFormValues>({
-    resolver: zodResolver(createLeadSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      businessName: "",
-      businessType: "",
-      website: "",
-      country: "",
-      timezone: "",
-      notes: "",
-    },
-  });
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-  async function onSubmit(values: CreateLeadFormValues) {
+    const form = new FormData(e.currentTarget);
+
+    const name = emptyToUndefined(form.get("name"));
+    const businessName = emptyToUndefined(form.get("businessName"));
+
+    if (!name || !businessName) {
+      toast.error("Name + Business required");
+      return;
+    }
+
     try {
       await createLead({
-        name: values.name,
-        email: values.email,
-        businessName: values.businessName,
-        businessType: values.businessType,
-        website: values.website,
-        country: values.country,
-        timezone: values.timezone,
-        notes: values.notes,
+        name,
+        businessName,
+
+        phone: emptyToUndefined(form.get("phone")),
+        whatsapp: emptyToUndefined(form.get("whatsapp")),
+        email: emptyToUndefined(form.get("email")),
+
+        jobTitle: emptyToUndefined(form.get("jobTitle")),
+        businessType: emptyToUndefined(form.get("businessType")),
+
+        city: emptyToUndefined(form.get("city")),
+        capturedFrom: emptyToUndefined(form.get("capturedFrom")),
+
+        quickNote: emptyToUndefined(form.get("quickNote")),
+        observedProblems: splitList(form.get("observedProblems")),
+
+        source,
+        workType,
+        budgetRange,
+        urgency,
+        priority,
+
+        capturedAt: new Date(),
       }).unwrap();
 
-      toast.success("Lead created successfully");
-      form.reset();
+      toast.success("Lead created");
       setOpen(false);
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to create lead");
+      e.currentTarget.reset();
+    } catch (err) {
+      toast.error("Failed to create lead");
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">Add Lead</Button>
+        <Button size="sm" className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Lead
+        </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create New Lead</DialogTitle>
-          <DialogDescription>
-            Add a new prospect to your leads database. Fill in at least the name and email.
-          </DialogDescription>
+
+      <DialogContent className="max-h-[95vh] w-[96vw] !max-w-6xl overflow-hidden p-0 rounded-2xl">
+        <DialogHeader className="border-b px-6 py-4">
+          <DialogTitle>Create Lead</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name and Email */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john@example.com" type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <form onSubmit={onSubmit} className="flex flex-col">
+          <Tabs defaultValue="basic" className="flex-1">
+            {/* TAB NAV */}
+            <div className="border-b px-6 pt-3">
+              <TabsList className="grid grid-cols-4 w-full">
+                <TabsTrigger value="basic">Basic</TabsTrigger>
+                <TabsTrigger value="contact">Contact</TabsTrigger>
+                <TabsTrigger value="intel">Intel</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+              </TabsList>
             </div>
 
-            {/* Business Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="businessName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Business Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Acme Corp" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="businessType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Business Type</FormLabel>
-                    <FormControl>
-                      <Input placeholder="SaaS, Agency, etc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* BODY */}
+            <div className="max-h-[65vh] overflow-y-auto px-6 py-5 space-y-6">
+
+              {/* BASIC */}
+              <TabsContent value="basic" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Name">
+                    <Input name="name" className="h-9" />
+                  </Field>
+
+                  <Field label="Business">
+                    <Input name="businessName" className="h-9" />
+                  </Field>
+
+                  <Field label="Job Title">
+                    <Input name="jobTitle" className="h-9" />
+                  </Field>
+
+                  <Field label="Business Type">
+                    <Input name="businessType" className="h-9" />
+                  </Field>
+                </div>
+              </TabsContent>
+
+              {/* CONTACT */}
+              <TabsContent value="contact" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Email">
+                    <Input name="email" className="h-9" />
+                  </Field>
+
+                  <Field label="Phone">
+                    <Input name="phone" className="h-9" />
+                  </Field>
+
+                  <Field label="WhatsApp">
+                    <Input name="whatsapp" className="h-9" />
+                  </Field>
+
+                  <Field label="City">
+                    <Input name="city" className="h-9" />
+                  </Field>
+                </div>
+              </TabsContent>
+
+              {/* INTEL */}
+              <TabsContent value="intel" className="space-y-4">
+                <Field label="Captured From">
+                  <Input name="capturedFrom" className="h-9" />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <EnumSelect label="Source" value={source} values={LeadSource} onChange={setSource} />
+                  <EnumSelect label="Work Type" value={workType} values={WorkType} onChange={setWorkType} />
+                  <EnumSelect label="Budget" value={budgetRange} values={BudgetRange} onChange={setBudgetRange} />
+                  <EnumSelect label="Urgency" value={urgency} values={Urgency} onChange={setUrgency} />
+                </div>
+
+                <EnumSelect label="Priority" value={priority} values={Priority} onChange={setPriority} />
+              </TabsContent>
+
+              {/* NOTES */}
+              <TabsContent value="notes" className="space-y-4">
+                <Field label="Quick Note">
+                  <Textarea name="quickNote" className="min-h-20" />
+                </Field>
+
+                <Field label="Observed Problems">
+                  <Textarea
+                    name="observedProblems"
+                    placeholder="bad_website, no_booking_system"
+                    className="min-h-20"
+                  />
+                </Field>
+              </TabsContent>
             </div>
+          </Tabs>
 
-            {/* Website and Country */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input placeholder="United States" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          {/* FOOTER */}
+          <DialogFooter className="sticky bottom-0 border-t bg-background px-6 py-4">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
 
-            {/* Timezone */}
-            <FormField
-              control={form.control}
-              name="timezone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Timezone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="America/New_York" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Used for scheduling emails at optimal times
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add any internal notes about this lead..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Creating..." : "Create Lead"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+            <Button type="submit" disabled={isLoading} className="gap-2">
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create Lead
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

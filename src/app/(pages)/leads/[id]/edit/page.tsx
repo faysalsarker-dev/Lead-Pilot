@@ -1,36 +1,63 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { FormEvent, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
+import {
+  BudgetRange,
+  LeadSource,
+  LeadStatus,
+  Priority,
+  Urgency,
+  WorkType,
+  type Lead,
+} from "@/app/generated/prisma/browser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetLeadQuery, useUpdateLeadMutation } from "@/redux/hooks";
-import type { Lead } from "@/redux/features/leads/leads.api";
 
-const editLeadSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Enter a valid email address"),
-  businessName: z.string().optional(),
-  businessType: z.string().optional(),
-  website: z.string().url("Enter a valid URL").optional().or(z.literal("")),
-  country: z.string().optional(),
-  timezone: z.string().optional(),
-  status: z.enum(["NEW", "CONTACTED", "ACTIVE", "INTERESTED", "CONVERTED", "REJECTED"]),
-  notes: z.string().optional(),
-});
+const OPTIONAL = "__optional__";
 
-type EditLeadValues = z.infer<typeof editLeadSchema>;
+const emptyToUndefined = (value: FormDataEntryValue | null) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || undefined;
+};
+
+const enumValue = (value: FormDataEntryValue | null) => {
+  const text = emptyToUndefined(value);
+  return text === OPTIONAL ? undefined : text;
+};
+
+const splitList = (value: FormDataEntryValue | null) =>
+  (typeof value === "string" ? value : "")
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+function formatEnum(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "message" in error.data &&
+    typeof error.data.message === "string"
+  ) {
+    return error.data.message;
+  }
+
+  return "Failed to update lead";
+}
 
 export default function EditLeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -39,54 +66,80 @@ export default function EditLeadPage({ params }: { params: Promise<{ id: string 
   const [updateLead, { isLoading: isSaving }] = useUpdateLeadMutation();
   const lead = leadData?.data;
 
-  const form = useForm<EditLeadValues>({
-    resolver: zodResolver(editLeadSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      businessName: "",
-      businessType: "",
-      website: "",
-      country: "",
-      timezone: "",
-      status: "NEW",
-      notes: "",
-    },
-  });
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = emptyToUndefined(formData.get("name"));
+    const businessName = emptyToUndefined(formData.get("businessName"));
 
-  useEffect(() => {
-    if (!lead) return;
-    form.reset({
-      name: lead.name,
-      email: lead.email,
-      businessName: lead.businessName || "",
-      businessType: lead.businessType || "",
-      website: lead.website || "",
-      country: lead.country || "",
-      timezone: lead.timezone || "",
-      status: lead.status,
-      notes: lead.notes || "",
-    });
-  }, [form, lead]);
+    if (!name || !businessName) {
+      toast.error("Name and business name are required");
+      return;
+    }
 
-  async function onSubmit(values: EditLeadValues) {
     try {
-      await updateLead({ id, data: values }).unwrap();
+      await updateLead({
+        id,
+        data: {
+          name,
+          businessName,
+          email: emptyToUndefined(formData.get("email")),
+          businessType: emptyToUndefined(formData.get("businessType")),
+          jobTitle: emptyToUndefined(formData.get("jobTitle")),
+          phone: emptyToUndefined(formData.get("phone")),
+          whatsapp: emptyToUndefined(formData.get("whatsapp")),
+          website: emptyToUndefined(formData.get("website")),
+          country: emptyToUndefined(formData.get("country")),
+          city: emptyToUndefined(formData.get("city")),
+          area: emptyToUndefined(formData.get("area")),
+          timezone: emptyToUndefined(formData.get("timezone")),
+          status: enumValue(formData.get("status")) as Lead["status"],
+          source: enumValue(formData.get("source")) as Lead["source"],
+          workType: enumValue(formData.get("workType")) as Lead["workType"],
+          budgetRange: enumValue(formData.get("budgetRange")) as Lead["budgetRange"],
+          urgency: enumValue(formData.get("urgency")) as Lead["urgency"],
+          priority: enumValue(formData.get("priority")) as Lead["priority"],
+          quickNote: emptyToUndefined(formData.get("quickNote")),
+          observedProblems: splitList(formData.get("observedProblems")),
+          internalLabel: emptyToUndefined(formData.get("internalLabel")),
+          notes: emptyToUndefined(formData.get("notes")),
+        },
+      }).unwrap();
       toast.success("Lead updated");
       router.push(`/leads/${id}`);
-    } catch (error) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "data" in error &&
-        typeof error.data === "object" &&
-        error.data !== null &&
-        "message" in error.data &&
-        typeof error.data.message === "string"
-          ? error.data.message
-          : "Failed to update lead";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
+  }
+
+  function renderEnumSelect<T extends string>({
+    label,
+    name,
+    defaultValue,
+    values,
+    required,
+  }: {
+    name: string;
+    label: string;
+    defaultValue?: T | null;
+    values: Record<string, T>;
+    required?: boolean;
+  }) {
+    return (
+      <label className="space-y-2 text-sm font-medium">
+        {label}
+        <select
+          name={name}
+          defaultValue={defaultValue ?? OPTIONAL}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          {!required && <option value={OPTIONAL}>Not set</option>}
+          {Object.values(values).map((item) => (
+            <option key={item} value={item}>{formatEnum(item)}</option>
+          ))}
+        </select>
+      </label>
+    );
   }
 
   if (isLoading) {
@@ -128,60 +181,39 @@ export default function EditLeadPage({ params }: { params: Promise<{ id: string 
           <CardTitle>Lead Information</CardTitle>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="email" render={({ field }) => (
-                  <FormItem><FormLabel>Email *</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="status" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={(value) => field.onChange(value as Lead["status"])}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="NEW">New</SelectItem>
-                        <SelectItem value="CONTACTED">Contacted</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INTERESTED">Interested</SelectItem>
-                        <SelectItem value="CONVERTED">Converted</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="businessName" render={({ field }) => (
-                  <FormItem><FormLabel>Business Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="businessType" render={({ field }) => (
-                  <FormItem><FormLabel>Business Type</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="website" render={({ field }) => (
-                  <FormItem><FormLabel>Website</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="country" render={({ field }) => (
-                  <FormItem><FormLabel>Country</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="timezone" render={({ field }) => (
-                  <FormItem><FormLabel>Timezone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-              <FormField control={form.control} name="notes" render={({ field }) => (
-                <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea className="min-h-28 resize-none" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => router.push(`/leads/${id}`)} disabled={isSaving}>Cancel</Button>
-                <Button type="submit" disabled={isSaving} className="gap-2">
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </Form>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium">Name *<Input name="name" required minLength={2} defaultValue={lead.name} /></label>
+              <label className="space-y-2 text-sm font-medium">Email<Input name="email" type="email" defaultValue={lead.email ?? ""} /></label>
+              {renderEnumSelect({ name: "status", label: "Status", defaultValue: lead.status, values: LeadStatus, required: true })}
+              <label className="space-y-2 text-sm font-medium">Business Name *<Input name="businessName" required minLength={2} defaultValue={lead.businessName} /></label>
+              <label className="space-y-2 text-sm font-medium">Business Type<Input name="businessType" defaultValue={lead.businessType ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Job Title<Input name="jobTitle" defaultValue={lead.jobTitle ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Phone<Input name="phone" defaultValue={lead.phone ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">WhatsApp<Input name="whatsapp" defaultValue={lead.whatsapp ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Website<Input name="website" type="url" defaultValue={lead.website ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Country<Input name="country" defaultValue={lead.country ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">City<Input name="city" defaultValue={lead.city ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Area<Input name="area" defaultValue={lead.area ?? ""} /></label>
+              <label className="space-y-2 text-sm font-medium">Timezone<Input name="timezone" defaultValue={lead.timezone ?? ""} /></label>
+              {renderEnumSelect({ name: "source", label: "Source", defaultValue: lead.source, values: LeadSource })}
+              {renderEnumSelect({ name: "workType", label: "Work Type", defaultValue: lead.workType, values: WorkType })}
+              {renderEnumSelect({ name: "budgetRange", label: "Budget", defaultValue: lead.budgetRange, values: BudgetRange })}
+              {renderEnumSelect({ name: "urgency", label: "Urgency", defaultValue: lead.urgency, values: Urgency })}
+              {renderEnumSelect({ name: "priority", label: "Priority", defaultValue: lead.priority, values: Priority, required: true })}
+              <label className="space-y-2 text-sm font-medium">Internal Label<Input name="internalLabel" defaultValue={lead.internalLabel ?? ""} /></label>
+            </div>
+            <label className="space-y-2 text-sm font-medium">Quick Note<Textarea name="quickNote" className="min-h-24 resize-none" defaultValue={lead.quickNote ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Observed Problems<Textarea name="observedProblems" className="min-h-24 resize-none" defaultValue={lead.observedProblems.join(", ")} /></label>
+            <label className="space-y-2 text-sm font-medium">Notes<Textarea name="notes" className="min-h-28 resize-none" defaultValue={lead.notes ?? ""} /></label>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => router.push(`/leads/${id}`)} disabled={isSaving}>Cancel</Button>
+              <Button type="submit" disabled={isSaving} className="gap-2">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Changes
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

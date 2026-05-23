@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { templateController } from '@/backend/controllers';
+import { templateController } from '@/lib/api/controllers';
 
 // GET /api/templates
 // POST /api/templates

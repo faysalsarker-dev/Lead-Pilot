@@ -1,17 +1,7 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Reply as PrismaReply } from "@/app/generated/prisma/browser";
 
-export interface Reply {
-  id: string;
-  leadId: string;
-  mailboxId: string;
-  fromEmail: string;
-  subject: string;
-  body: string;
-  isRead: boolean;
-  receivedAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type Reply = PrismaReply;
 
 export interface CreateReplyRequest {
   leadId: string;

@@ -1,4 +1,5 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Conversation as PrismaConversation } from "@/app/generated/prisma/browser";
 
 export interface Message {
   role: "user" | "lead";
@@ -7,13 +8,9 @@ export interface Message {
   sentAt: string;
 }
 
-export interface Conversation {
-  id: string;
-  leadId: string;
+export type Conversation = Omit<PrismaConversation, "messages"> & {
   messages: Message[];
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 export interface AddMessageRequest {
   role: "user" | "lead";

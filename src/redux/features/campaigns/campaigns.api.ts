@@ -1,21 +1,11 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Campaign as PrismaCampaign, CampaignLead, Mailbox } from "@/app/generated/prisma/browser";
 
-export interface Campaign {
-  id: string;
-  name: string;
-  mailboxId: string;
-  initialTemplateId: string;
-  followup1TemplateId?: string;
-  followup2TemplateId?: string;
-  finalTemplateId?: string;
-  status: "DRAFT" | "RUNNING" | "PAUSED" | "COMPLETED";
-  sendWindow?: string;
-  followup1Days?: number;
-  followup2Days?: number;
-  finalDays?: number;
+export type Campaign = PrismaCampaign & {
+  campaignLeads?: CampaignLead[];
+  mailbox?: Mailbox;
   leadCount?: number;
   sentCount?: number;
-  launchedAt?: string;
   subject?: string;
   bodyTemplate?: string;
   sendWindowStart?: number;
@@ -23,9 +13,7 @@ export interface Campaign {
   followupDay1?: number;
   followupDay2?: number;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 export interface CreateCampaignRequest {
   name: string;

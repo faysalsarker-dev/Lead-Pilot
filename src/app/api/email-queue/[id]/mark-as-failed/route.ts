@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { emailQueueService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
+import { emailQueueService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 // POST /api/email-queue/[id]/mark-as-failed
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -18,7 +18,8 @@ export async function POST(
     const body = await request.json();
     const failReason = body.failReason || 'Unknown error';
 
-    const email = await emailQueueService.markEmailAsFailed(params.id, failReason);
+    const { id } = await params;
+    const email = await emailQueueService.markEmailAsFailed(id, failReason);
     return sendJsonResponse(createSuccessResponse(email, 'Email marked as failed'));
   } catch (error) {
     const errorResponse = handleError(error);

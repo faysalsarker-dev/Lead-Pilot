@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/blocks/theme-provider";
 import StoreProvider from "@/redux/StoreProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionProvider } from "@/components/blocks/session-provider";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -43,9 +44,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <StoreProvider>
-              {children}
-            </StoreProvider>
+            <SessionProvider>
+              <StoreProvider>
+                {children}
+              </StoreProvider>
+            </SessionProvider>
             <Toaster position="top-right" />
           </TooltipProvider>
         </ThemeProvider>

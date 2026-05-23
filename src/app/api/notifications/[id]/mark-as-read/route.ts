@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { notificationService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
+import { notificationService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 // POST /api/notifications/[id]/mark-as-read
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -15,7 +15,8 @@ export async function POST(
       return sendJsonResponse(createErrorResponse(auth.error, auth.statusCode), auth.statusCode);
     }
 
-    const notification = await notificationService.markNotificationAsRead(params.id);
+    const { id } = await params;
+    const notification = await notificationService.markNotificationAsRead(id);
     return sendJsonResponse(createSuccessResponse(notification, 'Notification marked as read'));
   } catch (error) {
     const errorResponse = handleError(error);

@@ -25,7 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetLeadsQuery } from "@/redux/hooks";
 import { Filter, MessageSquare, Search, TrendingUp, Upload, Users, Zap } from "lucide-react";
-import type { Lead } from "@/redux/features/leads/leads.api";
+import { EnrichmentStatus, LeadStatus, type Lead } from "@/app/generated/prisma/browser";
 
 const ALL_STATUSES = "ALL_STATUSES";
 const ALL_AI_ENRICHMENT = "ALL_AI_ENRICHMENT";
@@ -37,8 +37,8 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<Lead["status"] | typeof ALL_STATUSES>(
     ALL_STATUSES
   );
-  const [aiEnrichedFilter, setAiEnrichedFilter] = useState<
-    typeof ALL_AI_ENRICHMENT | "enriched" | "not-enriched"
+  const [enrichmentFilter, setEnrichmentFilter] = useState<
+    typeof ALL_AI_ENRICHMENT | Lead["enrichmentStatus"]
   >(ALL_AI_ENRICHMENT);
 
   const { data: leadsData, isLoading, isFetching } = useGetLeadsQuery({
@@ -46,10 +46,8 @@ export default function LeadsPage() {
     limit,
     search: searchQuery || undefined,
     status: statusFilter === ALL_STATUSES ? undefined : statusFilter,
-    aiEnriched:
-      aiEnrichedFilter === ALL_AI_ENRICHMENT
-        ? undefined
-        : aiEnrichedFilter === "enriched",
+    enrichmentStatus:
+      enrichmentFilter === ALL_AI_ENRICHMENT ? undefined : enrichmentFilter,
   });
 
   const leads = useMemo(() => leadsData?.data || [], [leadsData?.data]);
@@ -65,7 +63,7 @@ export default function LeadsPage() {
     const contacted = leads.filter((lead) => lead.status !== "NEW").length;
     const converted = leads.filter((lead) => lead.status === "CONVERTED").length;
     const replied = leads.filter((lead) => lead.hasReplied).length;
-    const enriched = leads.filter((lead) => lead.aiEnriched).length;
+    const enriched = leads.filter((lead) => lead.enrichmentStatus === "DONE").length;
 
     return {
       total,
@@ -189,12 +187,11 @@ export default function LeadsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
-                  <SelectItem value="NEW">New</SelectItem>
-                  <SelectItem value="CONTACTED">Contacted</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="INTERESTED">Interested</SelectItem>
-                  <SelectItem value="CONVERTED">Converted</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  {Object.values(LeadStatus).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replaceAll("_", " ")}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -204,11 +201,9 @@ export default function LeadsPage() {
                 AI Enrichment
               </label>
               <Select
-                value={aiEnrichedFilter}
+                value={enrichmentFilter}
                 onValueChange={(value) => {
-                  setAiEnrichedFilter(
-                    value as typeof ALL_AI_ENRICHMENT | "enriched" | "not-enriched"
-                  );
+                  setEnrichmentFilter(value as typeof ALL_AI_ENRICHMENT | Lead["enrichmentStatus"]);
                   setPage(1);
                 }}
               >
@@ -217,8 +212,11 @@ export default function LeadsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_AI_ENRICHMENT}>All leads</SelectItem>
-                  <SelectItem value="enriched">Enriched</SelectItem>
-                  <SelectItem value="not-enriched">Not enriched</SelectItem>
+                  {Object.values(EnrichmentStatus).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replaceAll("_", " ")}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

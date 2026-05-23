@@ -1,22 +1,16 @@
 import { baseApi } from "@/redux/baseApi";
+import type { EmailQueue as PrismaEmailQueue, Campaign, Lead, Mailbox, Template } from "@/app/generated/prisma/browser";
 
-export interface EmailQueueItem {
-  id: string;
-  campaignId: string;
-  leadId: string;
-  mailboxId: string;
-  templateId: string;
-  toEmail: string;
-  subject: string;
-  body: string;
-  status: "PENDING" | "SENT" | "FAILED";
-  attemptCount: number;
+export type EmailQueueItem = PrismaEmailQueue & {
+  campaign?: Campaign;
+  lead?: Lead;
+  mailbox?: Mailbox;
+  template?: Template;
+  toEmail?: string;
+  attemptCount?: number;
   lastError?: string;
-  sentAt?: string;
-  scheduledFor: string;
-  createdAt: string;
-  updatedAt: string;
-}
+  scheduledFor?: string;
+};
 
 export interface QueueStats {
   total: number;

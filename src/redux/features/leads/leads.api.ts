@@ -1,41 +1,7 @@
 import { baseApi } from "@/redux/baseApi";
+import type { EnrichmentStatus, Lead, LeadStatus } from "@/app/generated/prisma/browser";
 
-export interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  businessName?: string;
-  businessType?: string;
-  website?: string;
-  country?: string;
-  timezone?: string;
-  status: "NEW" | "CONTACTED" | "ACTIVE" | "INTERESTED" | "CONVERTED" | "REJECTED";
-  isActive: boolean;
-  isInterested: boolean;
-  hasReplied?: boolean;
-  aiEnriched?: boolean;
-  aiScore?: number;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateLeadRequest {
-  name: string;
-  email: string;
-  businessName?: string;
-  businessType?: string;
-  website?: string;
-  country?: string;
-  timezone?: string;
-  notes?: string;
-}
-
-export interface UpdateLeadRequest extends Partial<CreateLeadRequest> {
-  status?: Lead["status"];
-  isActive?: boolean;
-  isInterested?: boolean;
-}
+export type { Lead } from "@/app/generated/prisma/browser";
 
 export interface LeadListResponse {
   success: boolean;
@@ -46,10 +12,6 @@ export interface LeadListResponse {
     limit: number;
     totalPages: number;
   };
-}
-
-export interface BulkCreateLeadsRequest {
-  leads: CreateLeadRequest[];
 }
 
 export interface BulkCreateLeadsResponse {
@@ -65,10 +27,10 @@ export interface ListLeadsParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: Lead["status"];
+  status?: LeadStatus;
   isActive?: boolean;
   isInterested?: boolean;
-  aiEnriched?: boolean;
+  enrichmentStatus?: EnrichmentStatus;
 }
 
 export const leadsApi = baseApi.injectEndpoints({
@@ -93,7 +55,7 @@ export const leadsApi = baseApi.injectEndpoints({
     }),
 
     // Create single lead
-    createLead: builder.mutation<{ data: Lead }, CreateLeadRequest>({
+    createLead: builder.mutation<{ data: Lead }, Partial<Lead>>({
       query: (data) => ({
         url: "/leads",
         method: "POST",
@@ -105,7 +67,7 @@ export const leadsApi = baseApi.injectEndpoints({
     // Update lead
     updateLead: builder.mutation<
       { data: Lead },
-      { id: string; data: UpdateLeadRequest }
+      { id: string; data: Partial<Lead> }
     >({
       query: ({ id, data }) => ({
         url: `/leads/${id}`,
@@ -133,7 +95,7 @@ export const leadsApi = baseApi.injectEndpoints({
     // Bulk create leads
     bulkCreateLeads: builder.mutation<
       BulkCreateLeadsResponse,
-      BulkCreateLeadsRequest
+      { leads: Partial<Lead>[] }
     >({
       query: (data) => ({
         url: "/leads/bulk/create",

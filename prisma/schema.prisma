@@ -15,19 +15,8 @@ datasource db {
 // ENUMS
 // ============================================
 
-enum LeadStatus {
-  NEW
-  CONTACTED
-  ACTIVE       // replied
-  INTERESTED   // expressed interest
-  CONVERTED    // signed/paid
-  REJECTED     // said no
-}
 
-enum MailboxType {
-  GMAIL_OAUTH
-  CUSTOM_SMTP
-}
+
 
 enum TemplateType {
   INITIAL
@@ -67,12 +56,24 @@ enum UserStatus {
   BLOCKED 
 }
 
-enum EnrichmentStatus {
-  PENDING
-  RUNNING
-  DONE
-  FAILED
-  SKIPPED
+
+
+
+
+
+
+
+
+
+
+enum LeadStatus {
+  NEW          // just added, never contacted
+  CONTACTED    // at least one email sent, no reply yet
+  ACTIVE       // replied at least once
+  INTERESTED   // expressed real interest
+  CONVERTED    // became a paying client
+  REJECTED     // said no / not interested
+  GHOST        // was active, then went silent after showing interest
 }
 
 enum LeadSource {
@@ -81,11 +82,101 @@ enum LeadSource {
   LINKEDIN
   INSTAGRAM
   TWITTER
+  TIKTOK
   REFERRAL
-  MANUAL
-  CSV_IMPORT
+  MANUAL        // you added them yourself from memory / meeting
+  CSV_IMPORT    // bulk imported
+  FACEBOOK_ADS  // found via Facebook Ad Library (running ads)
+  COLD_CALL     // spoke to them first on phone
+  EVENT         // met at an event / conference
   OTHER
 }
+
+enum WorkType {
+  SERVICE   // ongoing retainer / monthly work
+  PROJECT   // one-time deliverable
+}
+
+enum BudgetRange {
+  UNKNOWN
+  SMALL      // under $200
+  MEDIUM     // $200-$1000
+  LARGE      // $1000-$5000
+  ENTERPRISE // $5000+
+}
+
+enum Urgency {
+  LOW     // no rush, nurture long term
+  MEDIUM  // interested but not rushing
+  HIGH    // needs solution soon
+  URGENT  // needs it now, follow up fast
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL   // drop everything, follow up today
+}
+
+enum EnrichmentStatus {
+  PENDING   // waiting to be enriched
+  RUNNING   // Gemini is analyzing right now
+  DONE      // successfully enriched
+  FAILED    // Gemini errored — show retry button
+  SKIPPED   // user opted out for this lead
+}
+
+
+
+enum MailboxType {
+  CLOUDFLARE_WORKER
+  // Custom domain (@faysalsarker.me) hosted on Cloudflare
+  // Sending:   Nodemailer via SMTP (any host you configure)
+  // Detection: Cloudflare Email Worker → webhook (real-time)
+  // IMAP:      NOT needed
+  // Setup:     Add domain to Cloudflare, deploy Email Worker,
+  //            configure SMTP for sending
+
+  GMAIL_IMAP
+  // Personal Gmail (@gmail.com) or Google Workspace
+  // Sending:   Nodemailer via Gmail SMTP with App Password
+  // Detection: IMAP polling every 15 minutes (App Password)
+  // IMAP:      REQUIRED — enable in Gmail settings
+  // Setup:     Enable 2FA → generate App Password → add here
+
+  GMAIL_OAUTH
+  // Gmail with full OAuth2 (more reliable than App Password)
+  // Sending:   Gmail API or SMTP with OAuth2 token
+  // Detection: Gmail API polling every 15 minutes
+  // IMAP:      NOT needed (uses Gmail API instead)
+  // Setup:     Google Cloud Console → OAuth credentials → connect
+
+  CUSTOM_SMTP
+  // Any other email host (Zoho, Namecheap cPanel, Fastmail etc)
+  // Sending:   Nodemailer via SMTP credentials
+  // Detection: IMAP polling every 15 minutes
+  // IMAP:      REQUIRED if you want reply detection
+  // Setup:     Get SMTP + IMAP credentials from your host
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MAILBOX STATUS — connection health shown in UI
+// ─────────────────────────────────────────────────────────────────
+
+enum MailboxStatus {
+  UNTESTED      // just added, never tested
+  CONNECTED     // last test passed — SMTP + IMAP both working
+  SMTP_ERROR    // can't send — SMTP credentials wrong or host unreachable
+  IMAP_ERROR    // can't receive — IMAP credentials wrong or disabled
+  AUTH_ERROR    // OAuth token expired (Gmail OAuth only)
+  RATE_LIMITED  // hit daily send limit
+  DISCONNECTED  // manually disabled or domain removed
+}
+
+
+
+
 
 // ============================================
 // MODELS
@@ -124,102 +215,338 @@ model User {
 }
 
 model Mailbox {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  label       String      // "Main Outreach", "Follow-up Mail"
-  type        MailboxType // GMAIL_OAUTH | CUSTOM_SMTP
-  isDefault   Boolean     @default(false)
-  isActive    Boolean     @default(true)
+  // ─────────────────────────────────────────────────────────────────
+  // IDENTITY — what is this mailbox
+  // ─────────────────────────────────────────────────────────────────
 
-  // Gmail OAuth
-  gmailRefreshToken String?
+  label       String       // display name: "Main Outreach", "Follow-up", "Client Mail"
+  fromName    String?      // sender name shown in email: "Faysal Sarker"
+                           // if null falls back to User.yourName
+  replyTo     String?      // optional reply-to address override
+                           // e.g. send FROM outreach@ but replies go to faysal@
 
-  // Custom SMTP
-  smtpHost     String?
-  smtpPort     Int?
-  smtpUser     String?
-  smtpPassEnc  String?   // encrypted at app level before storing
+  type        MailboxType  // determines how sending + detection works
+  isDefault   Boolean      @default(false)  // used when campaign has no mailbox set
+  isActive    Boolean      @default(true)   // false = paused, not used for sending
 
-  // IMAP (for reply detection — both types)
-  imapHost     String?
-  imapPort     Int?
-  imapUser     String?
-  imapPassEnc  String?
-  lastImapSync DateTime?
+  // ─────────────────────────────────────────────────────────────────
+  // CONNECTION HEALTH
+  // Tracks whether this mailbox is working or broken
+  // Shown in Settings → Mailboxes as a status badge
+  // ─────────────────────────────────────────────────────────────────
+
+  connectionStatus  MailboxStatus @default(UNTESTED)
+  lastTestedAt      DateTime?     // when was last test connection run
+  lastError         String?       // last error message for UI display
+                                  // e.g. "Invalid credentials" or "IMAP timeout"
+
+  // ─────────────────────────────────────────────────────────────────
+  // SENDING — GMAIL OAUTH
+  // Used when type = GMAIL_OAUTH
+  // OAuth gives full Gmail API access for both sending and reading
+  // ─────────────────────────────────────────────────────────────────
+
+  gmailEmail        String?   // which Google account: "faysal@gmail.com"
+                              // stored for display and dedup — not auth
+  gmailRefreshToken String?   // encrypted — used to get fresh access token per send
+
+  // ─────────────────────────────────────────────────────────────────
+  // SENDING — CUSTOM SMTP
+  // Used when type = CUSTOM_SMTP or CLOUDFLARE_SMTP
+  // Any email host that supports SMTP
+  // ─────────────────────────────────────────────────────────────────
+
+  smtpHost    String?
+  smtpPort    Int?      // usually 587 (TLS) or 465 (SSL)
+  smtpUser    String?   // login username (usually the email address)
+  smtpPassEnc String?   // AES-256-GCM encrypted password
+  smtpSsl     Boolean   @default(true)
+
+  // ─────────────────────────────────────────────────────────────────
+  // REPLY DETECTION — IMAP POLLING
+  // Used when type = GMAIL_IMAP or CUSTOM_SMTP
+  // Scans inbox every 15 minutes for replies from known leads
+  //
+  // For Gmail: use App Password (16-char, generated in Google Account)
+  // For custom SMTP hosts: use normal email password
+  //
+  // NOTE: Cloudflare domain emails do NOT use IMAP
+  // Their replies are caught by the Email Worker webhook instead
+  // imapEnabled = false for CLOUDFLARE_WORKER type
+  // ─────────────────────────────────────────────────────────────────
+
+  imapEnabled  Boolean   @default(false)   // is IMAP polling active for this mailbox
+  imapHost     String?   // imap.gmail.com or mail.yourdomain.com
+  imapPort     Int?      // usually 993 (SSL) or 143 (TLS)
+  imapUser     String?   // login username
+  imapPassEnc  String?   // AES-256-GCM encrypted password
+  imapSsl      Boolean   @default(true)
+  imapUidNext  Int?      // last IMAP UID scanned — avoids rescanning old emails
+                         // on first scan this is null → scan last 50 messages only
+  lastImapSync DateTime? // when was last successful scan
+
+  // ─────────────────────────────────────────────────────────────────
+  // CLOUDFLARE WORKER DETECTION
+  // Used when type = CLOUDFLARE_WORKER
+  //
+  // Custom domain emails (@faysalsarker.me) use Cloudflare Email Worker
+  // Worker intercepts every inbound email and POSTs to /api/webhooks/inbound
+  // No IMAP needed — detection is real-time via webhook
+  //
+  // webhookVerified = true means we received at least one webhook successfully
+  // fromDomain = the custom domain this mailbox sends from
+  // ─────────────────────────────────────────────────────────────────
+
+  fromDomain      String?   // e.g. "faysalsarker.me"
+                            // used to match inbound webhook to this mailbox
+  webhookVerified Boolean   @default(false)  // did webhook arrive successfully at least once
+  lastWebhookAt   DateTime? // when was last webhook received (health indicator)
+
+  // ─────────────────────────────────────────────────────────────────
+  // SEND RATE TRACKING
+  // Prevents hitting Gmail/SMTP daily send limits
+  // Resets daily by /api/cron/reset-send-counts
+  //
+  // Gmail free: ~500/day
+  // Gmail Workspace: ~2000/day
+  // Custom SMTP: depends on host
+  // ─────────────────────────────────────────────────────────────────
+
+  sendCountToday Int       @default(0)
+  dailySendLimit Int       @default(400)  // conservative — stay under Gmail limit
+  lastSentAt     DateTime?               // when last email was sent from this mailbox
+
+  // ─────────────────────────────────────────────────────────────────
+  // WARMUP TRACKING (future feature)
+  // Email warmup = gradually increasing send volume to build sender reputation
+  // Prevents spam folder on new mailboxes
+  // ─────────────────────────────────────────────────────────────────
+
+  isWarmedUp     Boolean  @default(false)  // has this mailbox been warmed up
+  warmupStartedAt DateTime?               // when warmup began
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  campaigns Campaign[]
-  replies   Reply[]
-  emailQueue EmailQueue[]
+  // ─────────────────────────────────────────────────────────────────
+  // RELATIONS
+  // Reply and Conversation removed — not storing messages in DB
+  // ─────────────────────────────────────────────────────────────────
 
-  // Indexes for better query performance
+  campaigns  Campaign[]    // campaigns using this mailbox for sending
+  emailQueue EmailQueue[]  // queued emails assigned to this mailbox
+  replies    Reply[]       // reply messages received through this mailbox
+
+  // ─────────────────────────────────────────────────────────────────
+  // CONSTRAINTS & INDEXES
+  // ─────────────────────────────────────────────────────────────────
+
+  @@unique([userId, label])             // no two mailboxes with same label per user
+
   @@index([userId])
-  @@index([isActive])
-  @@index([isDefault])
-  @@index([type])
-  @@index([userId, isActive])
+  @@index([userId, isActive])           // "find active mailboxes for this user"
+  @@index([userId, isDefault])          // "find default mailbox fast"
+  @@index([userId, type])               // "find all Gmail mailboxes" etc
+  @@index([imapEnabled, lastImapSync])  // cron: "which mailboxes need IMAP scan"
+  @@index([fromDomain])                 // webhook: "which mailbox owns this domain"
 }
+
 
 model Lead {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Basic info
-  name         String
-  email        String
-  businessName String
-  businessType String?
-  website      String?
-  country      String?
-  timezone     String?    // e.g. "America/New_York" — critical for scheduling
+  // ─────────────────────────────────────────────────────────────────
+  // IDENTITY — who is this person / business
+  // ─────────────────────────────────────────────────────────────────
 
-  // Pipeline status
-  status       LeadStatus @default(NEW)
-  isActive     Boolean    @default(false)  // true once they reply, never resets
-  hasReplied   Boolean    @default(false)
-  isInterested Boolean    @default(false)  // manually set by user
+  name         String    // contact person name (e.g. "Karim Ahmed")
+  businessName String    // the actual business (e.g. "Karim Salon BD")
+  businessType String?   // niche/category (e.g. "Salon", "Restaurant", "Agency")
+  jobTitle     String?   // their role if B2B (e.g. "Marketing Manager")
+  avatarUrl    String?   // profile photo URL if found (from social or website)
 
-  // AI enrichment (from Gemini)
-  aiScore        Int?      // 1–10
-  aiSummary      String?
-  aiPainPoints   String?  
-  aiEmailOpener  String?
-  aiEnriched     Boolean   @default(false)
-  aiEnrichedAt   DateTime?
+  // ─────────────────────────────────────────────────────────────────
+  // CONTACT CHANNELS — every way you can reach them
+  // All optional because you rarely have all of them at once
+  // ─────────────────────────────────────────────────────────────────
 
-  // Campaign tracking
-  campaignRunning Boolean @default(false)
+  email        String?   // primary email — nullable because you may add lead before finding email
+  emailVerified Boolean  @default(false)  // did you confirm this email actually works
 
-  // Notes (manual)
-  notes        String?
+  phone        String?   // regular phone
+  whatsapp     String?   // may differ from phone (different number for WA)
+  whatsappOptedIn Boolean @default(false) // did they agree to WA messages
+
+  // Social media handles — stored separately so you can build direct links
+  // e.g. instagram: "karimsalon" → instagram.com/karimsalon
+  facebookUrl    String?   // full URL to their FB page
+  instagramHandle String?  // username only e.g. "karimsalon"
+  linkedinUrl    String?   // full URL to their LinkedIn profile or company page
+  twitterHandle  String?   // username only e.g. "karimsalon"
+  youtubeUrl     String?   // YouTube channel if they have one
+  tiktokHandle   String?   // TikTok username
+
+  // Online presence
+  website        String?   // main website
+  googleMapsUrl  String?   // direct Google Maps listing link
+  googleMapsPlaceId String? // Place ID from Google Places API (for re-fetching data)
+
+  // ─────────────────────────────────────────────────────────────────
+  // LOCATION — where they are
+  // Critical for: timezone scheduling, market segmentation, local targeting
+  // ─────────────────────────────────────────────────────────────────
+
+  country   String?   // e.g. "Bangladesh"
+  city      String?   // e.g. "Dhaka"
+  area      String?   // e.g. "Mirpur" — useful for hyperlocal BD targeting
+  timezone  String?   // e.g. "Asia/Dhaka" — critical for send time calculation
+
+  // ─────────────────────────────────────────────────────────────────
+  // QUICK CAPTURE — the most important feature for daily use
+  //
+  // You're scrolling Facebook and see a salon with a bad website.
+  // You don't have time to fill a full form.
+  // quickNote lets you capture the insight immediately:
+  //   "bad website, no booking system, runs ads but no landing page"
+  // Then enrich it properly later.
+  // ─────────────────────────────────────────────────────────────────
+
+  quickNote    String?   // raw capture note — what caught your attention
+  capturedFrom String?   // where you found them e.g. "Facebook feed", "Instagram explore"
+  capturedAt   DateTime? // when you spotted them (may differ from createdAt)
+
+  // ─────────────────────────────────────────────────────────────────
+  // PROBLEMS OBSERVED — why this lead needs your services
+  //
+  // This is the secret weapon. When you see a lead's problem instantly
+  // and record it, your outreach email can reference it specifically.
+  // "I noticed your salon doesn't have an online booking system"
+  // is 10x more effective than a generic cold email.
+  //
+  // Stored as String[] so you can tag multiple problems per lead
+  // and filter by problem type later.
+  // ─────────────────────────────────────────────────────────────────
+
+  observedProblems  String[]  // problems YOU spotted
+  // Examples of values:
+  // "no_website"
+  // "bad_website"          — old, slow, ugly
+  // "no_booking_system"
+  // "no_whatsapp_button"
+  // "no_google_maps"
+  // "no_social_media"
+  // "inactive_social"      — hasn't posted in months
+  // "no_online_menu"       — restaurants
+  // "no_ssl"               — not https
+  // "mobile_not_friendly"
+  // "no_email_capture"
+  // "running_ads_no_landing_page"  — spending money but losing leads
+  // "competitor_has_better_site"
+  // "no_marketing"
+  // "no_seo"
+
+  // ─────────────────────────────────────────────────────────────────
+  // LEAD CLASSIFICATION — what kind of work do they need
+  // ─────────────────────────────────────────────────────────────────
+
+  workType     WorkType?   // SERVICE (ongoing) or PROJECT (one-time)
+  budgetRange  BudgetRange? // estimated budget tier
+  urgency      Urgency?    // how urgently do they need this
+  source       LeadSource? // how you found them
+
+  // ─────────────────────────────────────────────────────────────────
+  // PIPELINE STATUS — where they are in your sales process
+  // ─────────────────────────────────────────────────────────────────
+
+  status          LeadStatus @default(NEW)
+  statusUpdatedAt DateTime   @default(now()) // when did status last change
+                                             // tells you: how long stuck in a stage
+
+  // Engagement flags — these are permanent signals
+  isActive        Boolean @default(false)  // true once they reply — NEVER resets
+  hasReplied      Boolean @default(false)  // ever replied to any message
+  isInterested    Boolean @default(false)  // manually set: they showed real interest
+  unsubscribed    Boolean @default(false)  // opted out — never contact again
+
+  // Contact tracking
+  campaignRunning  Boolean   @default(false) // in an active campaign right now
+  lastContactedAt  DateTime?                 // when last email/msg sent
+  totalEmailsSent  Int       @default(0)     // total outreach attempts across all campaigns
+  lastReplyAt      DateTime?                 // when they last replied
+
+  priority     Priority  @default(MEDIUM)
+  isPinned     Boolean   @default(false)  // pin to top of leads list
+  isFavorite   Boolean   @default(false)  // star/bookmark
+
+
+  enrichmentStatus EnrichmentStatus @default(PENDING)
+  enrichmentError  String?
+  aiEnrichedAt     DateTime?
+
+  aiScore          Int?      // 1-10 quality score
+  aiSummary        String?   // 2-sentence business description
+  aiPainPoints     String[]  // AI-detected pain points
+  aiEmailOpener    String?   // personalized first line for cold email
+  aiAdCopy         String?   // if found via Facebook Ad Library: their ad copy
+                             // gold for personalization
+
+  notes            String?   // freeform notes (markdown supported)
+  internalLabel    String?   // private label you set (e.g. "best BD lead this week")
+
+ 
+  softDeleted Boolean   @default(false)
+  deletedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  campaignLeads  CampaignLead[]
-  replies        Reply[]
-  conversation   Conversation?
-  notifications  Notification[]
-  emailQueue     EmailQueue[]
 
-  // Indexes for better query performance
+
+  campaignLeads CampaignLead[]
+  replies       Reply[]
+  conversation  Conversation?
+  notifications Notification[]
+  emailQueue    EmailQueue[]
+
+
+  @@unique([userId, email])             // no duplicate emails per user (when email exists)
+
   @@index([userId])
-  @@index([email])
-  @@index([status])
-  @@index([hasReplied])
-  @@index([isActive])
-  @@index([aiEnriched])
-  @@index([createdAt])
-  @@index([userId, status])
-  @@index([userId, hasReplied])
-  @@index([userId, createdAt])
+  @@index([userId, status])             // filter by status (most common query)
+  @@index([userId, source])             // analytics: which source converts best
+  @@index([userId, priority])           // "show me all HIGH priority leads"
+  @@index([userId, isActive])           // "show me all active leads"
+  @@index([userId, hasReplied])         // "who has replied"
+  @@index([userId, isInterested])       // "who is interested"
+  @@index([userId, isPinned])           // pinned leads always fast to fetch
+  @@index([userId, workType])           // filter service vs project
+  @@index([userId, enrichmentStatus])   // cron: find leads needing enrichment
+  @@index([userId, softDeleted])        // exclude deleted leads from all queries
+  @@index([userId, campaignRunning])    // find leads in active campaigns
+  @@index([createdAt])                  // sort by newest
+  @@index([statusUpdatedAt])            // find leads stuck in a stage too long
+  @@index([observedProblems])           // filter by problem type (GIN index in postgres)
 }
+
+// ─────────────────────────────────────────────────────────────────
+// ENUMS — all possible values clearly defined
+// ─────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+
 
 model Template {
   id        String       @id @default(cuid())

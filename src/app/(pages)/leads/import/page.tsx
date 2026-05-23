@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useBulkCreateLeadsMutation } from "@/redux/hooks";
-import type { CreateLeadRequest } from "@/redux/features/leads/leads.api";
+import type { Lead } from "@/app/generated/prisma/browser";
 
 function parseCsvLine(line: string) {
   const values: string[] = [];
@@ -33,7 +33,7 @@ function parseCsvLine(line: string) {
   return values;
 }
 
-function parseLeads(csv: string): CreateLeadRequest[] {
+function parseLeads(csv: string): Partial<Lead>[] {
   const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
 

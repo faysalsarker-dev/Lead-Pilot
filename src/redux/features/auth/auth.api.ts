@@ -1,4 +1,5 @@
 import { baseApi } from "@/redux/baseApi";
+import type { User } from "@/app/generated/prisma/browser";
 
 export interface RegisterRequest {
   email: string;
@@ -8,13 +9,7 @@ export interface RegisterRequest {
 
 export interface RegisterResponse {
   message: string;
-  user: {
-    id: number;
-    email: string;
-    name?: string;
-    createdAt: string;
-    updatedAt: string;
-  };
+  user: User;
 }
 
 export interface LoginRequest {
@@ -24,15 +19,6 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   message?: string;
-}
-
-export interface User {
-  id: number;
-  email: string;
-  name?: string;
-  emailVerified?: string | null;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface GetMeResponse {

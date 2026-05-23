@@ -1,20 +1,13 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Template as PrismaTemplate, TemplateType } from "@/app/generated/prisma/browser";
 
-export interface Template {
-  id: string;
-  name: string;
-  type: "INITIAL" | "FOLLOWUP_1" | "FOLLOWUP_2" | "FINAL";
-  subjectA: string;
-  subjectB?: string;
-  body: string;
+export type Template = PrismaTemplate & {
   variables?: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 export interface CreateTemplateRequest {
   name: string;
-  type: Template["type"];
+  type: TemplateType;
   subjectA: string;
   subjectB?: string;
   body: string;
@@ -36,7 +29,7 @@ export interface TemplateListResponse {
 export interface TemplateListParams {
   page?: number;
   limit?: number;
-  type?: Template["type"];
+  type?: TemplateType;
 }
 
 export interface DuplicateTemplateRequest {

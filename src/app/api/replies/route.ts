@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { replyService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
-import { validateBody } from '@/backend/middleware/validation';
-import { createReplySchema } from '@/backend/validators/reply.validators';
+import { replyService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
+import { validateBody } from '@/lib/api/middleware/validation';
+import { createReplySchema } from '@/lib/api/validators/reply.validators';
 
 // GET /api/replies
 // POST /api/replies

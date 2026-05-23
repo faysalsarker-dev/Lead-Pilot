@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { campaignController } from '@/backend/controllers';
+import { campaignController } from '@/lib/api/controllers';
 
 // POST /api/campaigns/[id]/launch
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  return campaignController.launchCampaign(request, params);
+  return campaignController.launchCampaign(request, await params);
 }

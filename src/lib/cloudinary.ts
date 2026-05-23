@@ -26,7 +26,7 @@ function getCloudinaryConfig(): CloudinaryConfig {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
   const apiSecret = process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET;
-  const folder = process.env.CLOUDINARY_PROFILE_FOLDER || "lead-pilot/profiles";
+  const folder = process.env.NEXT_PUBLIC_CLOUDINARY_PROFILE_FOLDER || "lead-pilot/profiles";
 
   if (!cloudName || !apiKey || !apiSecret) {
     throw new Error("Cloudinary is not configured");

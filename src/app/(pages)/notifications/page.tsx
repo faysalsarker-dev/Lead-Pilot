@@ -12,7 +12,7 @@ import {
   useDeleteNotificationMutation,
   useDeleteAllNotificationsMutation,
 } from "@/redux/hooks";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,7 +28,6 @@ import {
   Bell,
   CheckCircle2,
   MessageSquare,
-  Target,
   TrendingUp,
   Trash2,
   MoreVertical,
@@ -37,12 +36,12 @@ import {
   Filter,
   Zap,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type NotificationType = "REPLY_RECEIVED" | "FOLLOWUP_SENT" | "CAMPAIGN_COMPLETED" | "LEAD_BOUNCED" | "CAMPAIGN_PAUSED" | "AI_ENRICHMENT_DONE";
 
 function getTypeIcon(type: NotificationType) {
-  const icons: Record<NotificationType, JSX.Element> = {
+  const icons: Record<NotificationType, React.ReactElement> = {
     REPLY_RECEIVED: <MessageSquare className="h-4 w-4" />,
     FOLLOWUP_SENT: <Mail className="h-4 w-4" />,
     CAMPAIGN_COMPLETED: <CheckCircle2 className="h-4 w-4" />,
@@ -95,7 +94,7 @@ function NotificationSkeleton() {
   return (
     <div className="p-4 border-b space-y-3">
       <div className="flex gap-4">
-        <Skeleton className="h-10 w-10 rounded-lg flex-shrink-0" />
+        <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-1/3" />
           <Skeleton className="h-3 w-full" />
@@ -107,7 +106,15 @@ function NotificationSkeleton() {
 }
 
 interface NotificationItemProps {
-  notification: any;
+  notification: {
+    id: string;
+    title: string;
+    message: string;
+    type: NotificationType;
+    isRead: boolean;
+    relatedId?: string | null;
+    createdAt: string;
+  };
   onMarkAsRead: (id: string) => void;
   onDelete: (id: string) => void;
   isLoading: boolean;
@@ -119,7 +126,7 @@ function NotificationItem({
   onDelete,
   isLoading,
 }: NotificationItemProps) {
-  const actionUrl = getActionUrl(notification.type, notification.relatedId);
+  const actionUrl = getActionUrl(notification.type, notification.relatedId || undefined);
 
   const content = (
     <div
@@ -128,7 +135,7 @@ function NotificationItem({
       }`}
     >
       {/* Icon */}
-      <div className={`p-2 rounded-lg mt-1 flex-shrink-0 border ${getTypeColor(notification.type)}`}>
+      <div className={`p-2 rounded-lg mt-1 shrink-0 border ${getTypeColor(notification.type)}`}>
         {getTypeIcon(notification.type)}
       </div>
 
@@ -155,7 +162,7 @@ function NotificationItem({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={isLoading}>
@@ -213,13 +220,13 @@ export default function NotificationsPage() {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  const notifications = notificationsData?.data || [];
+  const notifications = useMemo(() => notificationsData?.data || [], [notificationsData?.data]);
   const unreadCount = unreadCountData?.data?.count || 0;
   const readCount = (notificationsData?.pagination?.total || 0) - unreadCount;
 
   const filteredNotifications = useMemo(() => {
     if (selectedType === "all") return notifications;
-    return notifications.filter((n: any) => n.type === selectedType);
+    return notifications.filter((n) => n.type === selectedType);
   }, [notifications, selectedType]);
 
   const handleMarkAsRead = async (id: string) => {
@@ -261,7 +268,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-6 max-w-300 mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -342,7 +349,7 @@ export default function NotificationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={filterType} onValueChange={(v) => setFilterType(v as any)}>
+          <Tabs value={filterType} onValueChange={(v) => setFilterType(v as "all" | "unread" | "read")}>
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="all">All Notifications</TabsTrigger>
               <TabsTrigger value="unread">
@@ -406,7 +413,7 @@ export default function NotificationsPage() {
             </Alert>
           ) : (
             <div className="border-t">
-              {filteredNotifications.map((notification: any) => (
+              {filteredNotifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
                   notification={notification}

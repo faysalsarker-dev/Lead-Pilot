@@ -1,15 +1,9 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Mailbox as PrismaMailbox, MailboxType } from "@/app/generated/prisma/browser";
 
-export interface Mailbox {
-  id: string;
-  label: string;
-  type: "GMAIL_OAUTH" | "CUSTOM_SMTP";
+export type Mailbox = PrismaMailbox & {
   email?: string;
-  isActive: boolean;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 export interface CreateGmailMailboxRequest {
   label: string;

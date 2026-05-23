@@ -1,31 +1,39 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
+const AUTH_ROUTES = new Set(["/login", "/register"]);
+
 export async function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-
-  console.log(token, "token in proxy");
-  const isAuthPage =
-    request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname === "/register";
-  const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth");
+  const isLoggedIn = Boolean(token);
+  const isAuthPage = AUTH_ROUTES.has(pathname);
+  const isApiRoute = pathname.startsWith("/api");
+  const isAuthApi = pathname.startsWith("/api/auth");
   const isDevDebugApi =
     process.env.NODE_ENV === "development" &&
-    request.nextUrl.pathname.startsWith("/api/debug");
+    pathname.startsWith("/api/debug");
 
-  if (!token) {
+  if (!isLoggedIn) {
     if (isAuthPage || isAuthApi || isDevDebugApi) {
       return NextResponse.next();
     }
 
-    return NextResponse.redirect(new URL("/login", request.url));
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", `${pathname}${search}`);
+
+    return NextResponse.redirect(loginUrl);
   }
 
-  if (token && isAuthPage) {
+  if (isAuthPage) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -34,6 +42,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)",
   ],
 };

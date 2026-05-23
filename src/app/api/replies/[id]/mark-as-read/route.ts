@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { replyService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
+import { replyService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 // POST /api/replies/[id]/mark-as-read
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -15,7 +15,8 @@ export async function POST(
       return sendJsonResponse(createErrorResponse(auth.error, auth.statusCode), auth.statusCode);
     }
 
-    const reply = await replyService.markReplyAsRead(params.id);
+    const { id } = await params;
+    const reply = await replyService.markReplyAsRead(id);
     return sendJsonResponse(createSuccessResponse(reply, 'Reply marked as read'));
   } catch (error) {
     const errorResponse = handleError(error);

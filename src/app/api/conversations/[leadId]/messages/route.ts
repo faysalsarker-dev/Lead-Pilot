@@ -1,15 +1,15 @@
 import { NextRequest } from 'next/server';
-import { conversationService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
-import { validateBody } from '@/backend/middleware/validation';
-import { addMessageSchema } from '@/backend/validators/conversation.validators';
+import { conversationService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
+import { validateBody } from '@/lib/api/middleware/validation';
+import { addMessageSchema } from '@/lib/api/validators/conversation.validators';
 
 // POST /api/conversations/[leadId]/messages
 export async function POST(
   request: NextRequest,
-  { params }: { params: { leadId: string } }
+  { params }: { params: Promise<{ leadId: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -20,7 +20,8 @@ export async function POST(
     const body = await request.json();
     const validatedData = await validateBody(body, addMessageSchema);
 
-    const conversation = await conversationService.addMessageToConversation(params.leadId, validatedData);
+    const { leadId } = await params;
+    const conversation = await conversationService.addMessageToConversation(leadId, validatedData);
     return sendJsonResponse(createSuccessResponse(conversation, 'Message added successfully'));
   } catch (error) {
     const errorResponse = handleError(error);

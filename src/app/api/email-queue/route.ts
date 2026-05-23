@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { emailQueueService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
+import { emailQueueService } from '@/lib/api/services';
+import { sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 // GET /api/email-queue
 export async function GET(request: NextRequest) {

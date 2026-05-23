@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { emailQueueService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
+import { emailQueueService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 // POST /api/email-queue/[id]/mark-as-sent
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -15,7 +15,8 @@ export async function POST(
       return sendJsonResponse(createErrorResponse(auth.error, auth.statusCode), auth.statusCode);
     }
 
-    const email = await emailQueueService.markEmailAsSent(params.id);
+    const { id } = await params;
+    const email = await emailQueueService.markEmailAsSent(id);
     return sendJsonResponse(createSuccessResponse(email, 'Email marked as sent'));
   } catch (error) {
     const errorResponse = handleError(error);

@@ -1,21 +1,12 @@
 import { baseApi } from "@/redux/baseApi";
+import type { Notification as PrismaNotification, NotificationType, Lead, Campaign } from "@/app/generated/prisma/browser";
 
-export interface Notification {
-  id: string;
-  type:
-    | "REPLY_RECEIVED"
-    | "FOLLOWUP_SENT"
-    | "CAMPAIGN_COMPLETED"
-    | "LEAD_BOUNCED"
-    | "CAMPAIGN_PAUSED"
-    | "AI_ENRICHMENT_DONE";
-  title: string;
-  message: string;
-  isRead: boolean;
+export type Notification = PrismaNotification & {
+  lead?: Lead;
+  campaign?: Campaign;
+  title?: string;
   relatedId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 export interface NotificationListResponse {
   success: boolean;
@@ -31,7 +22,7 @@ export interface NotificationListResponse {
 export interface NotificationListParams {
   page?: number;
   limit?: number;
-  type?: Notification["type"];
+  type?: NotificationType;
   isRead?: boolean;
 }
 

@@ -1,17 +1,17 @@
 import { NextRequest } from 'next/server';
-import { replyService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
-import { validateBody } from '@/backend/middleware/validation';
-import { updateReplySchema } from '@/backend/validators/reply.validators';
+import { replyService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
+import { validateBody } from '@/lib/api/middleware/validation';
+import { updateReplySchema } from '@/lib/api/validators/reply.validators';
 
 // GET /api/replies/[id]
 // PUT /api/replies/[id]
 // DELETE /api/replies/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -19,7 +19,8 @@ export async function GET(
       return sendJsonResponse(createErrorResponse(auth.error, auth.statusCode), auth.statusCode);
     }
 
-    const reply = await replyService.getReplyById(params.id);
+    const { id } = await params;
+    const reply = await replyService.getReplyById(id);
     return sendJsonResponse(createSuccessResponse(reply, 'Reply retrieved successfully'));
   } catch (error) {
     const errorResponse = handleError(error);
@@ -29,7 +30,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -40,7 +41,8 @@ export async function PUT(
     const body = await request.json();
     const validatedData = await validateBody(body, updateReplySchema);
 
-    const reply = await replyService.updateReply(params.id, validatedData);
+    const { id } = await params;
+    const reply = await replyService.updateReply(id, validatedData);
     return sendJsonResponse(createSuccessResponse(reply, 'Reply updated successfully'));
   } catch (error) {
     const errorResponse = handleError(error);
@@ -50,7 +52,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await requireAuth(request);
@@ -58,7 +60,8 @@ export async function DELETE(
       return sendJsonResponse(createErrorResponse(auth.error, auth.statusCode), auth.statusCode);
     }
 
-    await replyService.deleteReply(params.id);
+    const { id } = await params;
+    await replyService.deleteReply(id);
     return sendJsonResponse(createSuccessResponse(null, 'Reply deleted successfully'));
   } catch (error) {
     const errorResponse = handleError(error);

@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { FormEvent, useState } from "react";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import {
+  BudgetRange,
+  EnrichmentStatus,
+  LeadSource,
+  LeadStatus,
+  Priority,
+  Urgency,
+  WorkType,
+  type Lead,
+} from "@/app/generated/prisma/browser";
+import { useUpdateLeadMutation } from "@/redux/hooks";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,82 +23,152 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useUpdateLeadMutation } from "@/redux/hooks";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import type { Lead } from "@/redux/features/leads/leads.api";
 
-const updateLeadSchema = z.object({
-  name: z.string().min(1, "Name is required").min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  businessName: z.string().optional(),
-  businessType: z.string().optional(),
-  website: z.string().url("Invalid URL").optional().or(z.literal("")),
-  country: z.string().optional(),
-  timezone: z.string().optional(),
-  status: z.enum(["NEW", "CONTACTED", "ACTIVE", "INTERESTED", "CONVERTED", "REJECTED"]),
-  isInterested: z.boolean().optional(),
-  notes: z.string().optional(),
-});
-
-type UpdateLeadFormValues = z.infer<typeof updateLeadSchema>;
+const OPTIONAL = "__optional__";
 
 interface EditLeadDialogProps {
   lead: Lead;
   children?: React.ReactNode;
 }
 
+const emptyToUndefined = (value: FormDataEntryValue | null) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || undefined;
+};
+
+const enumValue = (value: FormDataEntryValue | null) => {
+  const text = emptyToUndefined(value);
+  return text === OPTIONAL ? undefined : text;
+};
+
+const splitList = (value: FormDataEntryValue | null) =>
+  (typeof value === "string" ? value : "")
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const listText = (value?: string[]) => value?.join(", ") ?? "";
+
+function formatEnum(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "message" in error.data &&
+    typeof error.data.message === "string"
+  ) {
+    return error.data.message;
+  }
+
+  return "Failed to update lead";
+}
+
 export function EditLeadDialog({ lead, children }: EditLeadDialogProps) {
   const [open, setOpen] = useState(false);
   const [updateLead, { isLoading }] = useUpdateLeadMutation();
 
-  const form = useForm<UpdateLeadFormValues>({
-    resolver: zodResolver(updateLeadSchema),
-    defaultValues: {
-      name: lead.name,
-      email: lead.email,
-      businessName: lead.businessName || "",
-      businessType: lead.businessType || "",
-      website: lead.website || "",
-      country: lead.country || "",
-      timezone: lead.timezone || "",
-      status: lead.status,
-      isInterested: lead.isInterested || false,
-      notes: lead.notes || "",
-    },
-  });
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = emptyToUndefined(formData.get("name"));
+    const businessName = emptyToUndefined(formData.get("businessName"));
 
-  async function onSubmit(values: UpdateLeadFormValues) {
+    if (!name || !businessName) {
+      toast.error("Name and business name are required");
+      return;
+    }
+
     try {
       await updateLead({
         id: lead.id,
-        data: values,
+        data: {
+          name,
+          businessName,
+          email: emptyToUndefined(formData.get("email")),
+          businessType: emptyToUndefined(formData.get("businessType")),
+          jobTitle: emptyToUndefined(formData.get("jobTitle")),
+          phone: emptyToUndefined(formData.get("phone")),
+          whatsapp: emptyToUndefined(formData.get("whatsapp")),
+          website: emptyToUndefined(formData.get("website")),
+          facebookUrl: emptyToUndefined(formData.get("facebookUrl")),
+          instagramHandle: emptyToUndefined(formData.get("instagramHandle")),
+          linkedinUrl: emptyToUndefined(formData.get("linkedinUrl")),
+          country: emptyToUndefined(formData.get("country")),
+          city: emptyToUndefined(formData.get("city")),
+          area: emptyToUndefined(formData.get("area")),
+          timezone: emptyToUndefined(formData.get("timezone")),
+          status: enumValue(formData.get("status")) as Lead["status"],
+          source: enumValue(formData.get("source")) as Lead["source"],
+          workType: enumValue(formData.get("workType")) as Lead["workType"],
+          budgetRange: enumValue(formData.get("budgetRange")) as Lead["budgetRange"],
+          urgency: enumValue(formData.get("urgency")) as Lead["urgency"],
+          priority: enumValue(formData.get("priority")) as Lead["priority"],
+          enrichmentStatus: enumValue(formData.get("enrichmentStatus")) as Lead["enrichmentStatus"],
+          isActive: formData.has("isActive"),
+          hasReplied: formData.has("hasReplied"),
+          isInterested: formData.has("isInterested"),
+          unsubscribed: formData.has("unsubscribed"),
+          isPinned: formData.has("isPinned"),
+          isFavorite: formData.has("isFavorite"),
+          quickNote: emptyToUndefined(formData.get("quickNote")),
+          observedProblems: splitList(formData.get("observedProblems")),
+          notes: emptyToUndefined(formData.get("notes")),
+          internalLabel: emptyToUndefined(formData.get("internalLabel")),
+        },
       }).unwrap();
 
       toast.success("Lead updated successfully");
       setOpen(false);
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to update lead");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     }
+  }
+
+  function renderEnumSelect<T extends string>({
+    label,
+    name,
+    defaultValue,
+    values,
+    required,
+  }: {
+    name: string;
+    label: string;
+    defaultValue?: T | null;
+    values: Record<string, T>;
+    required?: boolean;
+  }) {
+    return (
+      <label className="space-y-2 text-sm font-medium">
+        {label}
+        <select
+          name={name}
+          defaultValue={defaultValue ?? OPTIONAL}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          {!required && <option value={OPTIONAL}>Not set</option>}
+          {Object.values(values).map((item) => (
+            <option key={item} value={item}>{formatEnum(item)}</option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  function renderFlag(name: keyof Pick<Lead, "isActive" | "hasReplied" | "isInterested" | "unsubscribed" | "isPinned" | "isFavorite">) {
+    return (
+      <label key={name} className="flex items-center gap-2 rounded-md border p-3 text-sm">
+        <input type="checkbox" name={name} defaultChecked={Boolean(lead[name])} className="h-4 w-4" />
+        {formatEnum(name)}
+      </label>
+    );
   }
 
   return (
@@ -95,187 +176,63 @@ export function EditLeadDialog({ lead, children }: EditLeadDialogProps) {
       <DialogTrigger asChild>
         {children || <Button size="sm" variant="outline">Edit</Button>}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Lead</DialogTitle>
-          <DialogDescription>
-            Update lead information and status
-          </DialogDescription>
+          <DialogDescription>Update Prisma generated Lead fields.</DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name and Email */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="john@example.com" type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+        <form key={`${lead.id}-${open}`} onSubmit={onSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium">Contact Name *<Input name="name" required minLength={2} defaultValue={lead.name} /></label>
+            <label className="space-y-2 text-sm font-medium">Business Name *<Input name="businessName" required minLength={2} defaultValue={lead.businessName} /></label>
+            <label className="space-y-2 text-sm font-medium">Email<Input name="email" type="email" defaultValue={lead.email ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Phone<Input name="phone" defaultValue={lead.phone ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">WhatsApp<Input name="whatsapp" defaultValue={lead.whatsapp ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Job Title<Input name="jobTitle" defaultValue={lead.jobTitle ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Business Type<Input name="businessType" defaultValue={lead.businessType ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Website<Input name="website" type="url" defaultValue={lead.website ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Facebook URL<Input name="facebookUrl" type="url" defaultValue={lead.facebookUrl ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Instagram Handle<Input name="instagramHandle" defaultValue={lead.instagramHandle ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">LinkedIn URL<Input name="linkedinUrl" type="url" defaultValue={lead.linkedinUrl ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Timezone<Input name="timezone" defaultValue={lead.timezone ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Country<Input name="country" defaultValue={lead.country ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">City<Input name="city" defaultValue={lead.city ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Area<Input name="area" defaultValue={lead.area ?? ""} /></label>
+            <label className="space-y-2 text-sm font-medium">Internal Label<Input name="internalLabel" defaultValue={lead.internalLabel ?? ""} /></label>
+          </div>
 
-            {/* Business Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="businessName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Business Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Acme Corp" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="businessType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Business Type</FormLabel>
-                    <FormControl>
-                      <Input placeholder="SaaS, Agency, etc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            {renderEnumSelect({ name: "status", label: "Status", defaultValue: lead.status, values: LeadStatus, required: true })}
+            {renderEnumSelect({ name: "priority", label: "Priority", defaultValue: lead.priority, values: Priority, required: true })}
+            {renderEnumSelect({ name: "enrichmentStatus", label: "Enrichment", defaultValue: lead.enrichmentStatus, values: EnrichmentStatus, required: true })}
+            {renderEnumSelect({ name: "source", label: "Source", defaultValue: lead.source, values: LeadSource })}
+            {renderEnumSelect({ name: "workType", label: "Work Type", defaultValue: lead.workType, values: WorkType })}
+            {renderEnumSelect({ name: "budgetRange", label: "Budget", defaultValue: lead.budgetRange, values: BudgetRange })}
+            {renderEnumSelect({ name: "urgency", label: "Urgency", defaultValue: lead.urgency, values: Urgency })}
+          </div>
 
-            {/* Website and Country */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input placeholder="United States" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+            {renderFlag("isActive")}
+            {renderFlag("hasReplied")}
+            {renderFlag("isInterested")}
+            {renderFlag("unsubscribed")}
+            {renderFlag("isPinned")}
+            {renderFlag("isFavorite")}
+          </div>
 
-            {/* Status and Timezone */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="NEW">New</SelectItem>
-                        <SelectItem value="CONTACTED">Contacted</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INTERESTED">Interested</SelectItem>
-                        <SelectItem value="CONVERTED">Converted</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="timezone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Timezone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="America/New_York" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Used for scheduling emails at optimal times
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <label className="space-y-2 text-sm font-medium">Quick Note<Textarea name="quickNote" className="min-h-20 resize-none" defaultValue={lead.quickNote ?? ""} /></label>
+          <label className="space-y-2 text-sm font-medium">Observed Problems<Textarea name="observedProblems" className="min-h-20 resize-none" defaultValue={listText(lead.observedProblems)} /></label>
+          <label className="space-y-2 text-sm font-medium">Notes<Textarea name="notes" className="min-h-24 resize-none" defaultValue={lead.notes ?? ""} /></label>
 
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add any internal notes about this lead..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Updating..." : "Update Lead"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>Cancel</Button>
+            <Button type="submit" disabled={isLoading} className="gap-2">
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Update Lead
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

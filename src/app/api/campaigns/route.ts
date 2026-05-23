@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { campaignController } from '@/backend/controllers';
+import { campaignController } from '@/lib/api/controllers';
 
 // GET /api/campaigns
 // POST /api/campaigns

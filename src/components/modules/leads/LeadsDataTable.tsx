@@ -28,11 +28,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MoreHorizontal, Copy, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Copy, Edit, Trash2, Eye } from "lucide-react";
 import { useDeleteLeadMutation } from "@/redux/hooks";
 import { toast } from "sonner";
 import { EditLeadDialog } from "./EditLeadDialog";
-import type { Lead } from "@/redux/features/leads/leads.api";
+import type { Lead } from "@/app/generated/prisma/browser";
+import Link from "next/link";
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -48,7 +49,27 @@ const statusColors: Record<string, string> = {
   INTERESTED: "border-purple-200 bg-purple-50 text-purple-700",
   CONVERTED: "border-emerald-200 bg-emerald-50 text-emerald-700",
   REJECTED: "border-red-200 bg-red-50 text-red-700",
+  GHOST: "border-zinc-200 bg-zinc-50 text-zinc-700",
 };
+
+const priorityColors: Record<string, string> = {
+  LOW: "border-slate-200 bg-slate-50 text-slate-700",
+  MEDIUM: "border-blue-200 bg-blue-50 text-blue-700",
+  HIGH: "border-orange-200 bg-orange-50 text-orange-700",
+  CRITICAL: "border-red-200 bg-red-50 text-red-700",
+};
+
+const enrichmentColors: Record<string, string> = {
+  PENDING: "border-slate-200 bg-slate-50 text-slate-700",
+  RUNNING: "border-blue-200 bg-blue-50 text-blue-700",
+  DONE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  FAILED: "border-red-200 bg-red-50 text-red-700",
+  SKIPPED: "border-zinc-200 bg-zinc-50 text-zinc-700",
+};
+
+function formatEnum(value?: string | null) {
+  return value ? value.replaceAll("_", " ") : "-";
+}
 
 function getErrorMessage(error: unknown) {
   if (
@@ -99,8 +120,12 @@ export function LeadsTable({ leads, onEdit, onDelete, isLoading }: LeadsTablePro
       header: "Name",
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-medium">{row.getValue("name")}</span>
-          <span className="text-xs text-muted-foreground">{row.original.email}</span>
+          <Link href={`/leads/${row.original.id}`} className="font-medium hover:underline">
+            {row.getValue("name")}
+          </Link>
+          <span className="text-xs text-muted-foreground">
+            {row.original.jobTitle || row.original.email || row.original.phone || "No contact channel"}
+          </span>
         </div>
       ),
     },
@@ -109,9 +134,11 @@ export function LeadsTable({ leads, onEdit, onDelete, isLoading }: LeadsTablePro
       header: "Business",
       cell: ({ row }) => (
         <div>
-          <div className="font-medium text-sm">{row.original.businessName || "-"}</div>
+          <div className="font-medium text-sm">{row.original.businessName}</div>
           <div className="text-xs text-muted-foreground">
-            {row.original.businessType || "-"}
+            {[row.original.businessType, row.original.city, row.original.country]
+              .filter(Boolean)
+              .join(" / ") || "-"}
           </div>
         </div>
       ),
@@ -121,7 +148,25 @@ export function LeadsTable({ leads, onEdit, onDelete, isLoading }: LeadsTablePro
       header: "Status",
       cell: ({ row }) => (
         <Badge className={statusColors[row.getValue("status") as string]}>
-          {row.getValue("status")}
+          {formatEnum(row.getValue("status") as string)}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "priority",
+      header: "Priority",
+      cell: ({ row }) => (
+        <Badge variant="outline" className={priorityColors[row.original.priority]}>
+          {formatEnum(row.original.priority)}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "enrichmentStatus",
+      header: "AI",
+      cell: ({ row }) => (
+        <Badge variant="outline" className={enrichmentColors[row.original.enrichmentStatus]}>
+          {formatEnum(row.original.enrichmentStatus)}
         </Badge>
       ),
     },
@@ -178,6 +223,12 @@ export function LeadsTable({ leads, onEdit, onDelete, isLoading }: LeadsTablePro
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/leads/${lead.id}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   navigator.clipboard.writeText(lead.id);

@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { notificationService } from '@/backend/services';
-import { createSuccessResponse, sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/backend/middleware/response-handler';
-import { handleError } from '@/backend/middleware/errors';
-import { requireAuth } from '@/backend/middleware/auth';
-import { validateBody } from '@/backend/middleware/validation';
-import { createNotificationSchema } from '@/backend/validators/notification.validators';
+import { notificationService } from '@/lib/api/services';
+import { createSuccessResponse, sendJsonResponse, sendPaginatedResponse, createErrorResponse } from '@/lib/api/middleware/response-handler';
+import { handleError } from '@/lib/api/middleware/errors';
+import { requireAuth } from '@/lib/api/middleware/auth';
+import { validateBody } from '@/lib/api/middleware/validation';
+import { createNotificationSchema } from '@/lib/api/validators/notification.validators';
 
 // GET /api/notifications
 // POST /api/notifications
