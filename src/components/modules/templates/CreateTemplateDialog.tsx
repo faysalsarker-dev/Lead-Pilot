@@ -45,6 +45,11 @@ const createTemplateSchema = z.object({
 
 type CreateTemplateFormValues = z.infer<typeof createTemplateSchema>;
 
+function getMutationMessage(error: unknown, fallback: string) {
+  const maybeError = error as { data?: { message?: string } };
+  return maybeError.data?.message || fallback;
+}
+
 export function CreateTemplateDialog() {
   const [open, setOpen] = useState(false);
   const [createTemplate, { isLoading }] = useCreateTemplateMutation();
@@ -73,8 +78,8 @@ export function CreateTemplateDialog() {
       toast.success("Template created successfully");
       form.reset();
       setOpen(false);
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to create template");
+    } catch (error: unknown) {
+      toast.error(getMutationMessage(error, "Failed to create template"));
     }
   }
 

@@ -13,7 +13,7 @@ export interface CreateTemplateRequest {
   body: string;
 }
 
-export interface UpdateTemplateRequest extends Partial<CreateTemplateRequest> {}
+export type UpdateTemplateRequest = Partial<CreateTemplateRequest>;
 
 export interface TemplateListResponse {
   success: boolean;

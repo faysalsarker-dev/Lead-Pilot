@@ -35,6 +35,34 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })
 }
 
+function SortHead({
+  label,
+  col,
+  active,
+  dir,
+  onSort,
+  className = "",
+}: {
+  label: string
+  col: SortKey
+  active: boolean
+  dir: SortDir
+  onSort: (key: SortKey) => void
+  className?: string
+}) {
+  return (
+    <TableHead
+      className={`cursor-pointer select-none whitespace-nowrap ${className}`}
+      onClick={() => onSort(col)}
+    >
+      <span className="flex items-center gap-1 text-xs">
+        {label}
+        <SortIcon active={active} dir={dir} />
+      </span>
+    </TableHead>
+  )
+}
+
 interface Props {
   leads: Lead[]
   onDelete: (id: string) => void
@@ -68,22 +96,12 @@ export function LeadTable({ leads, onDelete, selectedIds, onSelectChange }: Prop
 
   function toggleOne(id: string) {
     const next = new Set(selectedIds)
-    next.has(id) ? next.delete(id) : next.add(id)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
     onSelectChange(next)
-  }
-
-  function SortHead({ label, col, className = "" }: { label: string; col: SortKey; className?: string }) {
-    return (
-      <TableHead
-        className={`cursor-pointer select-none whitespace-nowrap ${className}`}
-        onClick={() => toggleSort(col)}
-      >
-        <span className="flex items-center gap-1 text-xs">
-          {label}
-          <SortIcon active={sortKey === col} dir={sortDir} />
-        </span>
-      </TableHead>
-    )
   }
 
   if (sorted.length === 0) {
@@ -104,23 +122,23 @@ export function LeadTable({ leads, onDelete, selectedIds, onSelectChange }: Prop
             <TableHead className="w-10">
               <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
             </TableHead>
-            <SortHead label="Lead"         col="name"          className="min-w-[160px]" />
+            <SortHead label="Lead" col="name" active={sortKey === "name"} dir={sortDir} onSort={toggleSort} className="min-w-[160px]" />
             <TableHead className="text-xs min-w-[160px]">Contact</TableHead>
             <TableHead className="text-xs">Type</TableHead>
-            <SortHead label="Status"       col="status"        />
+            <SortHead label="Status" col="status" active={sortKey === "status"} dir={sortDir} onSort={toggleSort} />
             <TableHead className="text-xs">Replied</TableHead>
             <TableHead className="text-xs">Interested</TableHead>
             <TableHead className="text-xs">Campaign</TableHead>
             <TableHead className="text-xs">Source</TableHead>
-            <SortHead label="Score"        col="aiScore"       className="w-16" />
-            <SortHead label="Added"        col="addedAt"       className="w-24" />
-            <SortHead label="Last contact" col="lastContacted" className="w-28" />
+            <SortHead label="Score" col="aiScore" active={sortKey === "aiScore"} dir={sortDir} onSort={toggleSort} className="w-16" />
+            <SortHead label="Added" col="addedAt" active={sortKey === "addedAt"} dir={sortDir} onSort={toggleSort} className="w-24" />
+            <SortHead label="Last contact" col="lastContacted" active={sortKey === "lastContacted"} dir={sortDir} onSort={toggleSort} className="w-28" />
             <TableHead className="text-xs w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
 
         <TableBody>
-          {sorted.map((lead, i) => (
+          {sorted.map((lead) => (
             <TableRow
               key={lead.id}
               className={`group text-sm transition-colors ${selectedIds.has(lead.id) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""}`}

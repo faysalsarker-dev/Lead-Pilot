@@ -44,17 +44,14 @@ import {
   Globe,
   Info,
 } from "lucide-react";
-import type {
-  Mailbox,
-  MailboxType,
-  MailboxStatus,
-} from "@/app/generated/prisma/browser";
+import type { MailboxModel } from "@/app/generated/prisma/models";
+import type { MailboxType, MailboxStatus } from "@/app/generated/prisma/enums";
 
-// Use Prisma-generated Mailbox type directly
-type MailboxFormValues = Partial<Omit<Mailbox, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>;
+// Use Prisma-generated Mailbox model type
+type MailboxFormValues = Partial<Omit<MailboxModel, "id" | "userId" | "createdAt" | "updatedAt">>;
 
 interface MailboxDialogProps {
-  mailbox?: Mailbox;
+  mailbox?: MailboxModel | null;
   children?: React.ReactNode;
 }
 

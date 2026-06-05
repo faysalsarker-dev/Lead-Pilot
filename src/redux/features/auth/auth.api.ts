@@ -1,5 +1,6 @@
 import { baseApi } from "@/redux/baseApi";
 import type { User } from "@/app/generated/prisma/browser";
+import type { RootState } from "@/redux/store";
 
 export interface RegisterRequest {
   email: string;
@@ -118,5 +119,5 @@ export const {
 } = authApi;
 
 // Selectors for auth queries
-export const selectGetMeQueryState = (state: any) =>
+export const selectGetMeQueryState = (state: RootState) =>
   authApi.endpoints.getMe.select()(state);

@@ -89,9 +89,15 @@ Return as JSON:
     );
   }
 }
-import prisma from '@/lib/prisma';
-import { generateGeminiJson } from '@/lib/gemini';
-import { decrypt } from '@/lib/encryption';
+
+interface ConversationMessage {
+  role?: string;
+  body?: string;
+}
+
+function isConversationMessage(value: unknown): value is ConversationMessage {
+  return typeof value === 'object' && value !== null;
+}
 
 /**
  * Drafts a reply to a lead's email using AI
@@ -132,13 +138,15 @@ export async function runWriterAgent(leadId: string, userId: string): Promise<st
   }
 
   // Extract previous messages
-  const messages = (conversation.messages as Array<any>) || [];
+  const messages = Array.isArray(conversation.messages)
+    ? conversation.messages.filter(isConversationMessage)
+    : [];
   const recentMessages = messages.slice(-4); // Last 2 exchanges
 
   let conversationContext = 'Recent email conversation:\n';
   for (const msg of recentMessages) {
     const sender = msg.role === 'user' ? user.name || 'You' : lead.name;
-    conversationContext += `\n${sender}: ${msg.body}\n`;
+    conversationContext += `\n${sender}: ${msg.body || ''}\n`;
   }
 
   // Build prompt
@@ -191,7 +199,15 @@ async function generateGeminiText(prompt: string, apiKey: string): Promise<strin
     throw new Error(`Gemini API error: ${response.statusText}`);
   }
 
-  const data = (await response.json()) as any;
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          text?: string;
+        }>;
+      };
+    }>;
+  };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
   if (!text) {

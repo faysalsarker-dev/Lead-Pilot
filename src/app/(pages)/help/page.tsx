@@ -40,6 +40,7 @@ import {
   Settings,
   Inbox,
   HelpCircle,
+  Clock,
 } from "lucide-react";
 
 interface FAQItem {
@@ -380,7 +381,7 @@ export default function HelpPage() {
           <Card>
             <CardHeader>
               <CardTitle>Send us a Message</CardTitle>
-              <CardDescription>We'll get back to you as soon as possible</CardDescription>
+              <CardDescription>We&apos;ll get back to you as soon as possible</CardDescription>
             </CardHeader>
             <CardContent>
               {submitted ? (
@@ -388,7 +389,7 @@ export default function HelpPage() {
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertTitle className="text-green-800">Message Sent!</AlertTitle>
                   <AlertDescription className="text-green-700">
-                    Thank you for reaching out. We'll respond to your message within 24 hours.
+                    Thank you for reaching out. We&apos;ll respond to your message within 24 hours.
                   </AlertDescription>
                 </Alert>
               ) : (

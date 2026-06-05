@@ -6,10 +6,10 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const token = params.token;
+    const { token } = await params;
 
     // Log open event asynchronously (don't await)
     recordPixelOpen(token).catch((error) => {
@@ -44,8 +44,6 @@ async function recordPixelOpen(token: string) {
   // 1. Look up the email queue record by pixel token
   // 2. Update the corresponding CampaignLead.openedAt
   // For now, this is a placeholder that could be extended
-
-  const prisma = (await import('@/lib/prisma')).default;
 
   // Since we don't have a direct pixel token lookup,
   // this would require storing it in EmailQueue

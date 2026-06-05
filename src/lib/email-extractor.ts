@@ -27,7 +27,7 @@ export function extractEmail(text: string): string | null {
 export function extractText(html: string): string {
   if (!html) return '';
 
-  let text = html
+  const text = html
     // Remove script and style elements
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')

@@ -1,7 +1,21 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const AUTH_ROUTES = new Set(["/login", "/register"]);
+const PUBLIC_PAGES = new Set(["/login", "/register"]);
+const PUBLIC_API_PREFIX = "/api/auth";
+const DEV_DEBUG_API_PREFIX = "/api/debug";
+
+function isPublicPage(pathname: string) {
+  return PUBLIC_PAGES.has(pathname);
+}
+
+function isPublicApi(pathname: string) {
+  return pathname === PUBLIC_API_PREFIX || pathname.startsWith(`${PUBLIC_API_PREFIX}/`);
+}
+
+function isDevDebugApi(pathname: string) {
+  return process.env.NODE_ENV === "development" && pathname.startsWith(DEV_DEBUG_API_PREFIX);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -10,20 +24,16 @@ export async function proxy(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
 
+
+  console.log("Proxy Middleware - Path:", pathname, "Token:", token ? "Present" : "Not Present");
   const isLoggedIn = Boolean(token);
-  const isAuthPage = AUTH_ROUTES.has(pathname);
-  const isApiRoute = pathname.startsWith("/api");
-  const isAuthApi = pathname.startsWith("/api/auth");
-  const isDevDebugApi =
-    process.env.NODE_ENV === "development" &&
-    pathname.startsWith("/api/debug");
 
   if (!isLoggedIn) {
-    if (isAuthPage || isAuthApi || isDevDebugApi) {
+    if (isPublicPage(pathname) || isPublicApi(pathname) || isDevDebugApi(pathname)) {
       return NextResponse.next();
     }
 
-    if (isApiRoute) {
+    if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -33,7 +43,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isAuthPage) {
+  if (isPublicPage(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

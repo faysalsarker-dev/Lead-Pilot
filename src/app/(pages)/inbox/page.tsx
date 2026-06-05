@@ -40,6 +40,12 @@ interface Conversation {
   updatedAt: string;
 }
 
+type ConversationFilter = "all" | "unread" | "read" | "replied";
+
+function isConversationFilter(value: string): value is ConversationFilter {
+  return ["all", "unread", "read", "replied"].includes(value);
+}
+
 // Mock data for demonstration
 const MOCK_CONVERSATIONS: Conversation[] = [
   {
@@ -172,7 +178,7 @@ function ConversationRow({
 export default function InboxPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [filter, setFilter] = useState<"all" | "unread" | "read" | "replied">("all");
+  const [filter, setFilter] = useState<ConversationFilter>("all");
 
   // Filter conversations
   const filteredConversations = MOCK_CONVERSATIONS.filter((conv) => {
@@ -250,7 +256,14 @@ export default function InboxPage() {
                 </div>
 
                 {/* Filter Tabs */}
-                <Tabs value={filter} onValueChange={(value: any) => setFilter(value)}>
+                <Tabs
+                  value={filter}
+                  onValueChange={(value) => {
+                    if (isConversationFilter(value)) {
+                      setFilter(value);
+                    }
+                  }}
+                >
                   <TabsList className="w-full justify-start bg-transparent border-b rounded-none">
                     <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent">
                       All

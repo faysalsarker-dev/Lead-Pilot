@@ -13,6 +13,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { useGetUserProfileQuery, useUpdateUserSettingsMutation } from "@/redux/hooks";
 
+type SettingsFormData = {
+  name: string;
+  email: string;
+  timezone: string;
+  autoEnrich: boolean;
+  notificationEmails: boolean;
+  sendWindowStart: string;
+  sendWindowEnd: string;
+  defaultMailboxId: string;
+};
+
+function getMutationMessage(error: unknown, fallback: string) {
+  const maybeError = error as { data?: { message?: string } };
+  return maybeError.data?.message || fallback;
+}
+
 export default function SettingsPage() {
   const { data: userData, isLoading, error } = useGetUserProfileQuery({});
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserSettingsMutation();
@@ -46,7 +62,10 @@ export default function SettingsPage() {
     });
   }
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = <K extends keyof SettingsFormData>(
+    field: K,
+    value: SettingsFormData[K]
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -63,8 +82,8 @@ export default function SettingsPage() {
         timezone: formData.timezone,
       }).unwrap();
       setSuccessMessage("Profile updated successfully!");
-    } catch (err: any) {
-      setErrorMessage(err.data?.message || "Failed to update profile");
+    } catch (err: unknown) {
+      setErrorMessage(getMutationMessage(err, "Failed to update profile"));
     }
   };
 
@@ -80,8 +99,8 @@ export default function SettingsPage() {
         defaultMailboxId: formData.defaultMailboxId,
       }).unwrap();
       setSuccessMessage("Preferences updated successfully!");
-    } catch (err: any) {
-      setErrorMessage(err.data?.message || "Failed to update preferences");
+    } catch (err: unknown) {
+      setErrorMessage(getMutationMessage(err, "Failed to update preferences"));
     }
   };
 

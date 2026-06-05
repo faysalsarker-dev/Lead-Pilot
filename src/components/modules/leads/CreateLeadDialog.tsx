@@ -86,7 +86,12 @@ function EnumSelect<T extends LeadSelectValue>({
   value,
   values,
   onChange,
-}: any) {
+}: {
+  label: string;
+  value?: T;
+  values: Record<string, T>;
+  onChange: (value: T | undefined) => void;
+}) {
   const id = useId();
 
   const list = Object.values(values).filter(Boolean) as string[];

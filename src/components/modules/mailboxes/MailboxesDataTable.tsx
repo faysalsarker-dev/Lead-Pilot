@@ -5,10 +5,9 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  useReactTable,
-  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
+  useReactTable,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -19,6 +18,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,12 +39,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { MoreHorizontal, Copy, Edit, Trash2, Star } from "lucide-react";
+import {
+  AlertTriangle,
+  Copy,
+  Edit,
+  Mail,
+  MoreHorizontal,
+  Server,
+  ShieldCheck,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { useDeleteMailboxMutation, useSetDefaultMailboxMutation } from "@/redux/hooks";
 import { toast } from "sonner";
 import { MailboxDialog } from "./MailboxDialog";
 import type { Mailbox } from "@/redux/features/mailboxes/mailboxes.api";
+
+function getMutationMessage(error: unknown, fallback: string) {
+  const maybeError = error as { data?: { message?: string } };
+  return maybeError.data?.message || fallback;
+}
 
 interface MailboxesTableProps {
   mailboxes: Mailbox[];
@@ -43,72 +68,101 @@ interface MailboxesTableProps {
 }
 
 const typeColors: Record<string, string> = {
-  GMAIL_OAUTH: "bg-blue-100 text-blue-800",
-  CUSTOM_SMTP: "bg-purple-100 text-purple-800",
+  GMAIL_OAUTH: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300",
+  GMAIL_IMAP: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300",
+  CUSTOM_SMTP: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-300",
+  CLOUDFLARE_WORKER: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-300",
 };
 
-export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: MailboxesTableProps) {
+const typeLabels: Record<string, string> = {
+  GMAIL_OAUTH: "Gmail OAuth",
+  GMAIL_IMAP: "Gmail IMAP",
+  CUSTOM_SMTP: "Custom SMTP",
+  CLOUDFLARE_WORKER: "Cloudflare Worker",
+};
+
+function getMailboxAddress(mailbox: Mailbox) {
+  return mailbox.smtpUser || mailbox.imapUser || mailbox.gmailEmail || mailbox.replyTo || "";
+}
+
+function formatLastSync(date?: Date | string | null) {
+  if (!date) return "Never";
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
+export function MailboxesTable({ mailboxes, onDelete }: MailboxesTableProps) {
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [deletingMailboxId, setDeletingMailboxId] = useState<string | null>(null);
   const [deleteMailbox] = useDeleteMailboxMutation();
   const [setDefault] = useSetDefaultMailboxMutation();
 
   const columns: ColumnDef<Mailbox>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
+
     {
       accessorKey: "label",
-      header: "Label",
+      header: "Mailbox",
       cell: ({ row }) => {
         const mailbox = row.original;
+        const address = getMailboxAddress(mailbox);
+
         return (
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{row.getValue("label")}</span>
-            {mailbox.isDefault && (
-              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-            )}
+          <div className="flex min-w-55 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              {mailbox.type === "CUSTOM_SMTP" ? (
+                <Server className="h-4 w-4" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-medium">{row.getValue("label")}</span>
+                {mailbox.isDefault && (
+                  <Star className="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
+                )}
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {address || "No sender address"}
+              </p>
+            </div>
           </div>
         );
       },
     },
     {
       accessorKey: "type",
-      header: "Type",
+      header: "Provider",
       cell: ({ row }) => (
-        <Badge className={typeColors[row.getValue("type") as string]}>
-          {row.getValue("type")}
+        <Badge variant="outline" className={typeColors[row.getValue("type") as string]}>
+          {typeLabels[row.getValue("type") as string] || row.getValue("type")}
         </Badge>
       ),
     },
     {
-      accessorKey: "smtpUser",
-      header: "Email Address",
+      id: "replyTracking",
+      header: "Reply Tracking",
       cell: ({ row }) => {
         const mailbox = row.original;
+        const isReceiving = mailbox.imapEnabled || mailbox.type === "GMAIL_OAUTH";
+
         return (
-          <span className="text-sm text-muted-foreground">
-            {mailbox.smtpUser || mailbox.imapUser || "—"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`flex h-2 w-2 rounded-full ${
+                isReceiving ? "bg-emerald-500" : "bg-muted-foreground/30"
+              }`}
+            />
+            <span className="text-sm text-muted-foreground">
+              {isReceiving ? "Enabled" : "Not configured"}
+            </span>
+          </div>
         );
       },
     },
@@ -116,23 +170,27 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "default" : "secondary"}>
-          {row.original.isActive ? "Active" : "Inactive"}
+        <Badge
+          variant={row.original.isActive ? "outline" : "secondary"}
+          className={
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+              : ""
+          }
+        >
+          {row.original.isActive && <ShieldCheck className="h-3 w-3" />}
+          {row.original.isActive ? "Active" : "Paused"}
         </Badge>
       ),
     },
     {
       accessorKey: "lastImapSync",
       header: "Last Sync",
-      cell: ({ row }) => {
-        const date = row.original.lastImapSync;
-        if (!date) return <span className="text-muted-foreground">Never</span>;
-        return (
-          <span className="text-sm">
-            {new Date(date).toLocaleDateString()} {new Date(date).toLocaleTimeString()}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatLastSync(row.original.lastImapSync)}
+        </span>
+      ),
     },
     {
       id: "actions",
@@ -140,12 +198,15 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
         const mailbox = row.original;
 
         async function handleDelete() {
+          setDeletingMailboxId(mailbox.id);
           try {
             await deleteMailbox(mailbox.id).unwrap();
             toast.success("Mailbox deleted successfully");
             onDelete?.(mailbox.id);
-          } catch (error: any) {
-            toast.error(error?.data?.message || "Failed to delete mailbox");
+          } catch (error: unknown) {
+            toast.error(getMutationMessage(error, "Failed to delete mailbox"));
+          } finally {
+            setDeletingMailboxId(null);
           }
         }
 
@@ -153,15 +214,15 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
           try {
             await setDefault(mailbox.id).unwrap();
             toast.success("Mailbox set as default");
-          } catch (error: any) {
-            toast.error(error?.data?.message || "Failed to set default");
+          } catch (error: unknown) {
+            toast.error(getMutationMessage(error, "Failed to set default"));
           }
         }
 
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -178,7 +239,7 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
                 Copy ID
               </DropdownMenuItem>
               <MailboxDialog mailbox={mailbox}>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
@@ -195,10 +256,41 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
               )}
 
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDelete} className="text-red-600">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    onSelect={(event) => event.preventDefault()}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogMedia className="bg-red-100 text-red-600 dark:bg-red-950/40">
+                      <AlertTriangle className="h-5 w-5" />
+                    </AlertDialogMedia>
+                    <AlertDialogTitle>Delete mailbox?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove &quot;{mailbox.label}&quot; from your sending
+                      infrastructure. Campaigns using this mailbox may no longer send from it.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deletingMailboxId === mailbox.id}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={deletingMailboxId === mailbox.id}
+                    >
+                      {deletingMailboxId === mailbox.id ? "Deleting..." : "Delete mailbox"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -206,6 +298,7 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
     },
   ];
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: mailboxes,
     columns,
@@ -216,19 +309,21 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/40">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-12">
+                  <TableHead
+                    key={header.id}
+                    className="h-11 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -240,7 +335,7 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="h-16">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -250,8 +345,11 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No mailboxes found.
+                <TableCell colSpan={columns.length} className="h-32 text-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Mail className="h-8 w-8 opacity-60" />
+                    <span className="text-sm">No mailboxes found.</span>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -259,33 +357,12 @@ export function MailboxesTable({ mailboxes, onEdit, onDelete, isLoading }: Mailb
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-lg bg-muted/25 px-3 py-2">
         <div className="text-sm text-muted-foreground">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {table.getFilteredRowModel().rows.length} selected
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
+        <div className="text-sm text-muted-foreground">{mailboxes.length} visible</div>
       </div>
     </div>
   );

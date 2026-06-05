@@ -196,7 +196,7 @@ export class NotificationTriggerService {
    */
   static async updateWebPushSubscription(
     userId: string,
-    subscription: any
+    subscription: unknown
   ) {
     try {
       const user = await prisma.user.update({

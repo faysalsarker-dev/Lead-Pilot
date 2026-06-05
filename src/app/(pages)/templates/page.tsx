@@ -36,6 +36,11 @@ import { toast } from "sonner";
 const ALL_TEMPLATE_TYPES = "ALL_TEMPLATE_TYPES";
 type TemplateTypeFilter = typeof ALL_TEMPLATE_TYPES | "INITIAL" | "FOLLOWUP_1" | "FOLLOWUP_2" | "FINAL";
 
+function getMutationMessage(error: unknown, fallback: string) {
+  const maybeError = error as { data?: { message?: string } };
+  return maybeError.data?.message || fallback;
+}
+
 export default function TemplatesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -168,8 +173,8 @@ export default function TemplatesPage() {
               try {
                 await deleteTemplate(template.id).unwrap();
                 toast.success("Template deleted successfully");
-              } catch (error: any) {
-                toast.error(error?.data?.message || "Failed to delete template");
+              } catch (error: unknown) {
+                toast.error(getMutationMessage(error, "Failed to delete template"));
               }
             }
 

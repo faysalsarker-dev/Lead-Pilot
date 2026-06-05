@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Bell, Moon, Sun, Clock } from "lucide-react"
+import { Bell, Moon, Sun } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 import { Separator } from "@/components/ui/separator"
@@ -30,10 +30,11 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useGetNotificationsQuery } from "@/redux/hooks"
+import type { Notification } from "@/redux/features/notifications/notifications.api"
 
 export function SiteHeader() {
   const pathname = usePathname()
-  const { setTheme, theme } = useTheme()
+  const { setTheme } = useTheme()
   
   // Use notification hook for real-time updates
   const { unreadCount } = useNotifications({
@@ -73,7 +74,7 @@ export function SiteHeader() {
               <BreadcrumbItem>
                 <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
               </BreadcrumbItem>
-              {breadcrumbs.map((crumb, index) => (
+              {breadcrumbs.map((crumb) => (
                 <React.Fragment key={crumb.href}>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
@@ -122,7 +123,7 @@ export function SiteHeader() {
                 </div>
               ) : notifications.length > 0 ? (
                 <>
-                  {notifications.map((notification: any) => (
+                  {notifications.map((notification: Notification) => (
                     <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-1 p-3 cursor-default hover:bg-muted/50">
                       <div className="flex w-full items-center justify-between gap-2">
                         <span className="font-semibold text-sm line-clamp-1">

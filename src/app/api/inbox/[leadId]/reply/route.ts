@@ -11,7 +11,7 @@ const replySchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { leadId: string } }
+  { params }: { params: Promise<{ leadId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const leadId = params.leadId;
+    const { leadId } = await params;
     const body = await request.json();
     const { body: replyText } = replySchema.parse(body);
 
@@ -64,7 +64,9 @@ export async function POST(
     }
 
     // Append to messages
-    const messages = (conversation.messages as any[]) || [];
+    const messages = Array.isArray(conversation.messages)
+      ? [...conversation.messages]
+      : [];
     messages.push({
       role: 'user',
       body: replyText,

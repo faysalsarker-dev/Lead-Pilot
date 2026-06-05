@@ -47,6 +47,11 @@ const updateTemplateSchema = z.object({
 
 type UpdateTemplateFormValues = z.infer<typeof updateTemplateSchema>;
 
+function getMutationMessage(error: unknown, fallback: string) {
+  const maybeError = error as { data?: { message?: string } };
+  return maybeError.data?.message || fallback;
+}
+
 interface EditTemplateDialogProps {
   template: Template;
   children?: React.ReactNode;
@@ -76,8 +81,8 @@ export function EditTemplateDialog({ template, children }: EditTemplateDialogPro
 
       toast.success("Template updated successfully");
       setOpen(false);
-    } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to update template");
+    } catch (error: unknown) {
+      toast.error(getMutationMessage(error, "Failed to update template"));
     }
   }
 
