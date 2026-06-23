@@ -2,26 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 
 import type { UserModel as User } from "@/app/generated/prisma/models";
+import { publicUserSelect } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-
-const publicUserSelect = {
-  id: true,
-  email: true,
-  name: true,
-  image: true,
-  service: true,
-  createdAt: true,
-  updatedAt: true,
-  isActive: true,
-  status: true,
-  currentStreak: true,
-  longestStreak: true,
-  lastLoggedInAt: true,
-  autoEnrich: true,
-  defaultSendWindow: true,
-  webPushEnabled: true,
-  webPushSubscription: true,
-} satisfies Record<keyof Omit<User, "password">, true>;
 
 export async function POST(request: Request) {
   try {
@@ -33,8 +15,6 @@ export async function POST(request: Request) {
     const email = body.email?.trim().toLowerCase();
     const password = body.password;
     const service = body.service?.trim() || null;
-
-    console.log("Registering user:", { name, email, service });
 
     if (!name || !email || !password) {
       return NextResponse.json(

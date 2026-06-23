@@ -3,45 +3,48 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Loader2, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useLoginMutation } from "@/redux/features/auth/auth.api";
 
-const loginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Enter a valid email"),
-  password: z
-    .string()
-    .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters"),
-});
+import { useLoginMutation } from "@/redux/hooks";
 
-type LoginValues = z.infer<typeof loginSchema>;
+import {
+  Card,
+  CardContent,
+  ActionButton,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  Input,
+} from "@/components/ui";
+
+
+
+import { Prisma } from "@/app/generated/prisma/client";
+
+type UserFormValues = Prisma.UserCreateInput;
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const [login, { isLoading: submitting }] = useLoginMutation();
 
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<UserFormValues>({
     defaultValues: { email: "", password: "" },
   });
 
-  const onSubmit = async (values: LoginValues) => {
+  const onSubmit = async (values: UserFormValues) => {
     try {
       await login(values).unwrap();
       toast.success("Login successful", {
         description: `Welcome back, ${values.email}`,
       });
-      router.push("/");
+      router.push("/main");
       router.refresh();
     } catch {
       toast.error("Login failed", {
@@ -114,20 +117,16 @@ const LoginForm = () => {
               )}
             />
 
-            <Button
+       
+
+     <ActionButton
               type="submit"
-              className="h-11 w-full rounded-lg  font-semibold shadow-lg shadow-slate-950/10 hover:bg-slate-800"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
+              isLoading={submitting}
+              text="Login"
+            />
+
+
+
 
             <p className="border-t border-slate-100 pt-5 text-center text-sm text-slate-500">
               Don&apos;t have an account?{" "}

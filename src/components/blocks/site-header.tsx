@@ -28,8 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useNotifications } from "@/hooks/useNotifications"
-import { useGetNotificationsQuery } from "@/redux/hooks"
+
 import type { Notification } from "@/redux/features/notifications/notifications.api"
 
 export function SiteHeader() {

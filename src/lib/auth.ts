@@ -2,7 +2,58 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 
+import type { UserModel as User } from "@/app/generated/prisma/models";
 import prisma from "@/lib/prisma";
+
+export const publicUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  image: true,
+  service: true,
+  createdAt: true,
+  updatedAt: true,
+  isActive: true,
+  status: true,
+  currentStreak: true,
+  longestStreak: true,
+  lastLoggedInAt: true,
+  autoEnrich: true,
+  defaultSendWindow: true,
+  webPushEnabled: true,
+  webPushSubscription: true,
+} satisfies Record<keyof Omit<User, "password">, true>;
+
+export async function getUserByCredentials(
+  credentials: Partial<Pick<User, "email" | "password">>,
+) {
+  const email = credentials.email?.trim().toLowerCase();
+  const password = credentials.password;
+
+  if (!email || !password) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user || !user.isActive) {
+    return null;
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.password);
+
+  if (!passwordMatches) {
+    return null;
+  }
+
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoggedInAt: new Date() },
+    select: publicUserSelect,
+  });
+}
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -19,39 +70,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.trim().toLowerCase();
-        const password = credentials?.password;
+        const user = await getUserByCredentials(credentials ?? {});
 
-        if (!email || !password) {
-          return null;
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user || !user.isActive) {
-          return null;
-        }
-
-        const passwordMatches = await bcrypt.compare(password, user.password);
-
-        if (!passwordMatches) {
-          return null;
-        }
-
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoggedInAt: new Date() },
-        });
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          service: user.service,
-        };
+        return user;
       },
     }),
   ],

@@ -58,7 +58,7 @@ const RegisterForm = () => {
       toast.success("Account created", {
         description: `Welcome to Lead Pilot, ${data.user.name}`,
       });
-      router.push("/");
+      router.push("/main");
       router.refresh();
     } catch {
       toast.error("Registration failed", {

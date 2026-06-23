@@ -16,10 +16,20 @@ export const authApi = baseApi.injectEndpoints({
       invalidatesTags: ["Auth"],
     }),
     login: builder.mutation<
-      { success: boolean },
+      { success: boolean; user: Omit<User, "password"> },
       Pick<User, "email" | "password">
     >({
-      async queryFn({ email, password }) {
+      async queryFn({ email, password }, _api, _extraOptions, baseQuery) {
+        const loginResult = await baseQuery({
+          url: "/auth/login",
+          method: "POST",
+          data: { email, password },
+        });
+
+        if (loginResult.error) {
+          return { error: loginResult.error };
+        }
+
         const result = await signIn("credentials", {
           email,
           password,
@@ -35,7 +45,12 @@ export const authApi = baseApi.injectEndpoints({
           };
         }
 
-        return { data: { success: Boolean(result?.ok) } };
+        return {
+          data: {
+            success: Boolean(result?.ok),
+            ...(loginResult.data as { user: Omit<User, "password"> }),
+          },
+        };
       },
       invalidatesTags: ["Auth"],
     }),
