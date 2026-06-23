@@ -3,34 +3,42 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { BriefcaseBusiness, Eye, EyeOff, Loader2, LockKeyhole, Mail, User } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  User,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
+import { useLoginMutation, useRegisterMutation } from "@/redux/hooks";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  ActionButton,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  Input,
+} from "@/components/ui";
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().min(1, "Email is required").email("Enter a valid email"),
-  service: z.string().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+import { Prisma } from "@/app/generated/prisma/client";
 
-type RegisterValues = z.infer<typeof registerSchema>;
+type UserFormValues = Prisma.UserCreateInput;
 
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const [register, { isLoading: isRegistering }] = useRegisterMutation();
+  const [login, { isLoading: isLoggingIn }] = useLoginMutation();
 
-  const form = useForm<RegisterValues>({
-    resolver: zodResolver(registerSchema),
+  const form = useForm<UserFormValues>({
     defaultValues: {
       name: "",
       email: "",
@@ -39,39 +47,13 @@ const RegisterForm = () => {
     },
   });
 
-  const onSubmit = async (values: RegisterValues) => {
-    setSubmitting(true);
-
+  const onSubmit = async (values: UserFormValues) => {
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error("Registration failed", {
-          description: data.error || "Unable to create your account",
-        });
-        return;
-      }
-
-      const result = await signIn("credentials", {
+      const data = await register(values).unwrap();
+      await login({
         email: values.email,
         password: values.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        toast.success("Account created", {
-          description: "Please sign in with your new account.",
-        });
-        router.push("/login");
-        return;
-      }
+      }).unwrap();
 
       toast.success("Account created", {
         description: `Welcome to Lead Pilot, ${data.user.name}`,
@@ -80,10 +62,8 @@ const RegisterForm = () => {
       router.refresh();
     } catch {
       toast.error("Registration failed", {
-        description: "An unexpected error occurred",
+        description: "Unable to create your account",
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -179,7 +159,9 @@ const RegisterForm = () => {
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
                         tabIndex={-1}
                       >
                         {showPassword ? (
@@ -195,24 +177,19 @@ const RegisterForm = () => {
               )}
             />
 
-            <Button
+            <ActionButton
               type="submit"
-              className="h-11 w-full rounded-lg  font-semibold shadow-lg shadow-slate-950/10 "
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                "Create account"
-              )}
-            </Button>
+              isLoading={isRegistering || isLoggingIn}
+              text="Create Account"
+              loadingText="Creating Account..."
+            />
 
             <p className="border-t border-slate-100 pt-5 text-center text-sm text-slate-500">
               Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-blue-700 hover:text-blue-800 hover:underline">
+              <Link
+                href="/login"
+                className="font-semibold text-blue-700 hover:text-blue-800 hover:underline"
+              >
                 Sign in
               </Link>
             </p>

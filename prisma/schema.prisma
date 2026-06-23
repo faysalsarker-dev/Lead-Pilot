@@ -179,8 +179,8 @@ model User {
   templates     Template[]
   campaigns     Campaign[]
   notifications Notification[]
-  followUps     FollowUp[]     // ✅ ADDED
-  aiAgentJobs   AIAgentJob[]   // ✅ ADDED
+  followUps     FollowUp[]     
+  aiAgentJobs   AIAgentJob[]   
 
   @@index([email])
   @@index([createdAt])

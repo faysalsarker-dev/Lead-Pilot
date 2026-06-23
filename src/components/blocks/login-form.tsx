@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2, LockKeyhole, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -14,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useLoginMutation } from "@/redux/features/auth/auth.api";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -27,8 +27,8 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const [login, { isLoading: submitting }] = useLoginMutation();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -36,31 +36,17 @@ const LoginForm = () => {
   });
 
   const onSubmit = async (values: LoginValues) => {
-    setSubmitting(true);
-
     try {
-      const result = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
+      await login(values).unwrap();
+      toast.success("Login successful", {
+        description: `Welcome back, ${values.email}`,
       });
-
-      if (result?.error) {
-        toast.error("Login failed", {
-          description: result.error || "Invalid credentials",
-        });
-      } else if (result?.ok) {
-        toast.success("Login successful", {
-          description: `Welcome back, ${values.email}`,
-        });
-        router.push("/");
-      }
+      router.push("/");
+      router.refresh();
     } catch {
       toast.error("Login failed", {
-        description: "An unexpected error occurred",
+        description: "Invalid credentials",
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
