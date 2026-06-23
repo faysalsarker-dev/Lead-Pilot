@@ -80,7 +80,7 @@ export default function MailboxesPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6">
+      <div className="mx-auto max-w-350 space-y-6 p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-3">
             <Skeleton className="h-8 w-56" />
@@ -131,7 +131,7 @@ export default function MailboxesPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-350 space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -296,7 +296,7 @@ export default function MailboxesPage() {
                     setPage(1);
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[132px]">
+                  <SelectTrigger className="h-8 w-33">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,7 +362,7 @@ export default function MailboxesPage() {
               }}
             />
           ) : (
-            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+            <div className="flex min-h-65 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
               <Mail className="mb-4 h-10 w-10 text-muted-foreground/70" />
               <h3 className="text-base font-semibold">Build your sending pool</h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">

@@ -185,7 +185,7 @@ export function CreateLeadDialog() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[95vh] w-[96vw] !max-w-6xl overflow-hidden p-0 rounded-2xl">
+      <DialogContent className="max-h-[95vh] w-[96vw] max-w-6xl! overflow-hidden p-0 rounded-2xl">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Create Lead</DialogTitle>
         </DialogHeader>

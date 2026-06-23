@@ -1,7 +1,4 @@
 
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../src/app/generated/prisma"
@@ -14,9 +11,6 @@ datasource db {
 // ============================================
 // ENUMS
 // ============================================
-
-
-
 
 enum TemplateType {
   INITIAL
@@ -36,7 +30,7 @@ enum EmailQueueStatus {
   PENDING
   SENT
   FAILED
-  CANCELLED  // when lead replies — pending follow-ups get cancelled
+  CANCELLED
 }
 
 enum NotificationType {
@@ -46,34 +40,27 @@ enum NotificationType {
   LEAD_BOUNCED
   CAMPAIGN_PAUSED
   AI_ENRICHMENT_DONE
+  // ✅ ADDED
+  FOLLOWUP_DUE          // remind user a manual follow-up is due today
+  AI_AGENT_COMPLETED    // Hermes finished a lead collection job
+  AI_AGENT_FAILED       // Hermes job errored
 }
-
 
 enum UserStatus {
   ACTIVE
   TRIAL_EXPIRED
   PAUSED_FOR_BILLING
-  BLOCKED 
+  BLOCKED
 }
 
-
-
-
-
-
-
-
-
-
-
 enum LeadStatus {
-  NEW          // just added, never contacted
-  CONTACTED    // at least one email sent, no reply yet
-  ACTIVE       // replied at least once
-  INTERESTED   // expressed real interest
-  CONVERTED    // became a paying client
-  REJECTED     // said no / not interested
-  GHOST        // was active, then went silent after showing interest
+  NEW
+  CONTACTED
+  ACTIVE
+  INTERESTED
+  CONVERTED
+  REJECTED
+  GHOST
 }
 
 enum LeadSource {
@@ -84,123 +71,107 @@ enum LeadSource {
   TWITTER
   TIKTOK
   REFERRAL
-  MANUAL        // you added them yourself from memory / meeting
-  CSV_IMPORT    // bulk imported
-  FACEBOOK_ADS  // found via Facebook Ad Library (running ads)
-  COLD_CALL     // spoke to them first on phone
-  EVENT         // met at an event / conference
+  MANUAL
+  CSV_IMPORT
+  FACEBOOK_ADS
+  COLD_CALL
+  EVENT
+  AI_AGENT      // ✅ ADDED — leads collected by Hermes sniper
   OTHER
 }
 
 enum WorkType {
-  SERVICE   // ongoing retainer / monthly work
-  PROJECT   // one-time deliverable
+  SERVICE
+  PROJECT
 }
 
 enum BudgetRange {
   UNKNOWN
-  SMALL      // under $200
-  MEDIUM     // $200-$1000
-  LARGE      // $1000-$5000
-  ENTERPRISE // $5000+
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
 }
 
 enum Urgency {
-  LOW     // no rush, nurture long term
-  MEDIUM  // interested but not rushing
-  HIGH    // needs solution soon
-  URGENT  // needs it now, follow up fast
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
 enum Priority {
   LOW
   MEDIUM
   HIGH
-  CRITICAL   // drop everything, follow up today
+  CRITICAL
 }
 
 enum EnrichmentStatus {
-  PENDING   // waiting to be enriched
-  RUNNING   // Gemini is analyzing right now
-  DONE      // successfully enriched
-  FAILED    // Gemini errored — show retry button
-  SKIPPED   // user opted out for this lead
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  SKIPPED
 }
-
-
 
 enum MailboxType {
   CLOUDFLARE_WORKER
-  // Custom domain (@faysalsarker.me) hosted on Cloudflare
-  // Sending:   Nodemailer via SMTP (any host you configure)
-  // Detection: Cloudflare Email Worker → webhook (real-time)
-  // IMAP:      NOT needed
-  // Setup:     Add domain to Cloudflare, deploy Email Worker,
-  //            configure SMTP for sending
-
   GMAIL_IMAP
-  // Personal Gmail (@gmail.com) or Google Workspace
-  // Sending:   Nodemailer via Gmail SMTP with App Password
-  // Detection: IMAP polling every 15 minutes (App Password)
-  // IMAP:      REQUIRED — enable in Gmail settings
-  // Setup:     Enable 2FA → generate App Password → add here
-
   GMAIL_OAUTH
-  // Gmail with full OAuth2 (more reliable than App Password)
-  // Sending:   Gmail API or SMTP with OAuth2 token
-  // Detection: Gmail API polling every 15 minutes
-  // IMAP:      NOT needed (uses Gmail API instead)
-  // Setup:     Google Cloud Console → OAuth credentials → connect
-
   CUSTOM_SMTP
-  // Any other email host (Zoho, Namecheap cPanel, Fastmail etc)
-  // Sending:   Nodemailer via SMTP credentials
-  // Detection: IMAP polling every 15 minutes
-  // IMAP:      REQUIRED if you want reply detection
-  // Setup:     Get SMTP + IMAP credentials from your host
 }
-
-// ─────────────────────────────────────────────────────────────────
-// MAILBOX STATUS — connection health shown in UI
-// ─────────────────────────────────────────────────────────────────
 
 enum MailboxStatus {
-  UNTESTED      // just added, never tested
-  CONNECTED     // last test passed — SMTP + IMAP both working
-  SMTP_ERROR    // can't send — SMTP credentials wrong or host unreachable
-  IMAP_ERROR    // can't receive — IMAP credentials wrong or disabled
-  AUTH_ERROR    // OAuth token expired (Gmail OAuth only)
-  RATE_LIMITED  // hit daily send limit
-  DISCONNECTED  // manually disabled or domain removed
+  UNTESTED
+  CONNECTED
+  SMTP_ERROR
+  IMAP_ERROR
+  AUTH_ERROR
+  RATE_LIMITED
+  DISCONNECTED
 }
 
+// ✅ ADDED — AI agent job lifecycle
+enum AgentJobStatus {
+  QUEUED      // created, not started yet
+  RUNNING     // currently scraping
+  COMPLETED   // finished, CSV ready
+  FAILED      // error occurred
+  CANCELLED   // user cancelled
+}
 
-
-
+// ✅ ADDED — manual follow-up status
+enum FollowUpStatus {
+  PENDING     // scheduled, not done yet
+  SENT        // email sent for this follow-up
+  SKIPPED     // user dismissed it
+}
 
 // ============================================
 // MODELS
 // ============================================
 
 model User {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  password   String
+  id             String     @id @default(cuid())
+  email          String     @unique
+  password       String
   name           String
   image          String?
-  service    String?   // e.g. "web development", "SEO"
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  isActive       Boolean   @default(true)
-  status         UserStatus?   // e.g. "active", "trial_expired", "paused_for_billing"
-  currentStreak  Int       @default(0)
-  longestStreak  Int       @default(0)
-  lastLoggedInAt    DateTime?
+  service        String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  isActive       Boolean    @default(true)
+  status         UserStatus?
+  currentStreak  Int        @default(0)
+  longestStreak  Int        @default(0)
+  lastLoggedInAt DateTime?
+
   // Settings
-  autoEnrich          Boolean @default(true)   // auto-run Gemini on lead create
-  defaultSendWindow   String  @default("09:00-11:00") // local time window
+  autoEnrich          Boolean @default(true)
+  defaultSendWindow   String  @default("09:00-11:00")
   webPushEnabled      Boolean @default(false)
-  webPushSubscription Json?   // stores push subscription object
+  webPushSubscription Json?
 
   // Relations
   mailboxes     Mailbox[]
@@ -208,8 +179,9 @@ model User {
   templates     Template[]
   campaigns     Campaign[]
   notifications Notification[]
+  followUps     FollowUp[]     // ✅ ADDED
+  aiAgentJobs   AIAgentJob[]   // ✅ ADDED
 
-  // Indexes for better query performance
   @@index([email])
   @@index([createdAt])
 }
@@ -219,358 +191,197 @@ model Mailbox {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ─────────────────────────────────────────────────────────────────
-  // IDENTITY — what is this mailbox
-  // ─────────────────────────────────────────────────────────────────
+  label       String
+  fromName    String?
+  replyTo     String?
+  type        MailboxType
+  isDefault   Boolean     @default(false)
+  isActive    Boolean     @default(true)
 
-  label       String       // display name: "Main Outreach", "Follow-up", "Client Mail"
-  fromName    String?      // sender name shown in email: "Faysal Sarker"
-                           // if null falls back to User.yourName
-  replyTo     String?      // optional reply-to address override
-                           // e.g. send FROM outreach@ but replies go to faysal@
+  connectionStatus MailboxStatus @default(UNTESTED)
+  lastTestedAt     DateTime?
+  lastError        String?
 
-  type        MailboxType  // determines how sending + detection works
-  isDefault   Boolean      @default(false)  // used when campaign has no mailbox set
-  isActive    Boolean      @default(true)   // false = paused, not used for sending
-
-  // ─────────────────────────────────────────────────────────────────
-  // CONNECTION HEALTH
-  // Tracks whether this mailbox is working or broken
-  // Shown in Settings → Mailboxes as a status badge
-  // ─────────────────────────────────────────────────────────────────
-
-  connectionStatus  MailboxStatus @default(UNTESTED)
-  lastTestedAt      DateTime?     // when was last test connection run
-  lastError         String?       // last error message for UI display
-                                  // e.g. "Invalid credentials" or "IMAP timeout"
-
-  // ─────────────────────────────────────────────────────────────────
-  // SENDING — GMAIL OAUTH
-  // Used when type = GMAIL_OAUTH
-  // OAuth gives full Gmail API access for both sending and reading
-  // ─────────────────────────────────────────────────────────────────
-
-  gmailEmail        String?   // which Google account: "faysal@gmail.com"
-                              // stored for display and dedup — not auth
-  gmailRefreshToken String?   // encrypted — used to get fresh access token per send
-
-  // ─────────────────────────────────────────────────────────────────
-  // SENDING — CUSTOM SMTP
-  // Used when type = CUSTOM_SMTP or CLOUDFLARE_SMTP
-  // Any email host that supports SMTP
-  // ─────────────────────────────────────────────────────────────────
+  gmailEmail        String?
+  gmailRefreshToken String?
 
   smtpHost    String?
-  smtpPort    Int?      // usually 587 (TLS) or 465 (SSL)
-  smtpUser    String?   // login username (usually the email address)
-  smtpPassEnc String?   // AES-256-GCM encrypted password
-  smtpSsl     Boolean   @default(true)
+  smtpPort    Int?
+  smtpUser    String?
+  smtpPassEnc String?
+  smtpSsl     Boolean @default(true)
 
-  // ─────────────────────────────────────────────────────────────────
-  // REPLY DETECTION — IMAP POLLING
-  // Used when type = GMAIL_IMAP or CUSTOM_SMTP
-  // Scans inbox every 15 minutes for replies from known leads
-  //
-  // For Gmail: use App Password (16-char, generated in Google Account)
-  // For custom SMTP hosts: use normal email password
-  //
-  // NOTE: Cloudflare domain emails do NOT use IMAP
-  // Their replies are caught by the Email Worker webhook instead
-  // imapEnabled = false for CLOUDFLARE_WORKER type
-  // ─────────────────────────────────────────────────────────────────
-
-  imapEnabled  Boolean   @default(false)   // is IMAP polling active for this mailbox
-  imapHost     String?   // imap.gmail.com or mail.yourdomain.com
-  imapPort     Int?      // usually 993 (SSL) or 143 (TLS)
-  imapUser     String?   // login username
-  imapPassEnc  String?   // AES-256-GCM encrypted password
+  imapEnabled  Boolean   @default(false)
+  imapHost     String?
+  imapPort     Int?
+  imapUser     String?
+  imapPassEnc  String?
   imapSsl      Boolean   @default(true)
-  imapUidNext  Int?      // last IMAP UID scanned — avoids rescanning old emails
-                         // on first scan this is null → scan last 50 messages only
-  lastImapSync DateTime? // when was last successful scan
+  imapUidNext  Int?
+  lastImapSync DateTime?
 
-  // ─────────────────────────────────────────────────────────────────
-  // CLOUDFLARE WORKER DETECTION
-  // Used when type = CLOUDFLARE_WORKER
-  //
-  // Custom domain emails (@faysalsarker.me) use Cloudflare Email Worker
-  // Worker intercepts every inbound email and POSTs to /api/webhooks/inbound
-  // No IMAP needed — detection is real-time via webhook
-  //
-  // webhookVerified = true means we received at least one webhook successfully
-  // fromDomain = the custom domain this mailbox sends from
-  // ─────────────────────────────────────────────────────────────────
-
-  fromDomain      String?   // e.g. "faysalsarker.me"
-                            // used to match inbound webhook to this mailbox
-  webhookVerified Boolean   @default(false)  // did webhook arrive successfully at least once
-  lastWebhookAt   DateTime? // when was last webhook received (health indicator)
-
-  // ─────────────────────────────────────────────────────────────────
-  // SEND RATE TRACKING
-  // Prevents hitting Gmail/SMTP daily send limits
-  // Resets daily by /api/cron/reset-send-counts
-  //
-  // Gmail free: ~500/day
-  // Gmail Workspace: ~2000/day
-  // Custom SMTP: depends on host
-  // ─────────────────────────────────────────────────────────────────
 
   sendCountToday Int       @default(0)
-  dailySendLimit Int       @default(400)  // conservative — stay under Gmail limit
-  lastSentAt     DateTime?               // when last email was sent from this mailbox
+  dailySendLimit Int       @default(400)
+  lastSentAt     DateTime?
 
-  // ─────────────────────────────────────────────────────────────────
-  // WARMUP TRACKING (future feature)
-  // Email warmup = gradually increasing send volume to build sender reputation
-  // Prevents spam folder on new mailboxes
-  // ─────────────────────────────────────────────────────────────────
 
-  isWarmedUp     Boolean  @default(false)  // has this mailbox been warmed up
-  warmupStartedAt DateTime?               // when warmup began
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ─────────────────────────────────────────────────────────────────
-  // RELATIONS
-  // Reply and Conversation removed — not storing messages in DB
-  // ─────────────────────────────────────────────────────────────────
+  campaigns  Campaign[]
+  emailQueue EmailQueue[]
 
-  campaigns  Campaign[]    // campaigns using this mailbox for sending
-  emailQueue EmailQueue[]  // queued emails assigned to this mailbox
-  replies    Reply[]       // reply messages received through this mailbox
-
-  // ─────────────────────────────────────────────────────────────────
-  // CONSTRAINTS & INDEXES
-  // ─────────────────────────────────────────────────────────────────
-
-  @@unique([userId, label])             // no two mailboxes with same label per user
-
+  @@unique([userId, label])
   @@index([userId])
-  @@index([userId, isActive])           // "find active mailboxes for this user"
-  @@index([userId, isDefault])          // "find default mailbox fast"
-  @@index([userId, type])               // "find all Gmail mailboxes" etc
-  @@index([imapEnabled, lastImapSync])  // cron: "which mailboxes need IMAP scan"
-  @@index([fromDomain])                 // webhook: "which mailbox owns this domain"
+  @@index([userId, isActive])
+  @@index([userId, isDefault])
+  @@index([userId, type])
+  @@index([imapEnabled, lastImapSync])
 }
-
 
 model Lead {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ─────────────────────────────────────────────────────────────────
-  // IDENTITY — who is this person / business
-  // ─────────────────────────────────────────────────────────────────
+  // ── IDENTITY ──────────────────────────────
+  name         String
+  businessName String
+  businessType String?
+  jobTitle     String?
+  avatarUrl    String?
 
-  name         String    // contact person name (e.g. "Karim Ahmed")
-  businessName String    // the actual business (e.g. "Karim Salon BD")
-  businessType String?   // niche/category (e.g. "Salon", "Restaurant", "Agency")
-  jobTitle     String?   // their role if B2B (e.g. "Marketing Manager")
-  avatarUrl    String?   // profile photo URL if found (from social or website)
+  // ── CONTACT ───────────────────────────────
+  email           String?
+  emailVerified   Boolean @default(false)
+  phone           String?
+  whatsapp        String?
+  whatsappOptedIn Boolean @default(false)
 
-  // ─────────────────────────────────────────────────────────────────
-  // CONTACT CHANNELS — every way you can reach them
-  // All optional because you rarely have all of them at once
-  // ─────────────────────────────────────────────────────────────────
+  facebookUrl     String?
+  instagramHandle String?
+  linkedinUrl     String?
+  twitterHandle   String?
+  youtubeUrl      String?
+  tiktokHandle    String?
 
-  email        String?   // primary email — nullable because you may add lead before finding email
-  emailVerified Boolean  @default(false)  // did you confirm this email actually works
+  website            String?
+  googleMapsUrl      String?
+  googleMapsPlaceId  String?
 
-  phone        String?   // regular phone
-  whatsapp     String?   // may differ from phone (different number for WA)
-  whatsappOptedIn Boolean @default(false) // did they agree to WA messages
+  // ── LOCATION ──────────────────────────────
+  country  String?
+  city     String?
+  area     String?
+  timezone String?
 
-  // Social media handles — stored separately so you can build direct links
-  // e.g. instagram: "karimsalon" → instagram.com/karimsalon
-  facebookUrl    String?   // full URL to their FB page
-  instagramHandle String?  // username only e.g. "karimsalon"
-  linkedinUrl    String?   // full URL to their LinkedIn profile or company page
-  twitterHandle  String?   // username only e.g. "karimsalon"
-  youtubeUrl     String?   // YouTube channel if they have one
-  tiktokHandle   String?   // TikTok username
+  // ── QUICK CAPTURE ─────────────────────────
+  quickNote    String?
+  capturedFrom String?
+  capturedAt   DateTime?
 
-  // Online presence
-  website        String?   // main website
-  googleMapsUrl  String?   // direct Google Maps listing link
-  googleMapsPlaceId String? // Place ID from Google Places API (for re-fetching data)
+  // ── PROBLEMS ──────────────────────────────
+  observedProblems String[]
 
-  // ─────────────────────────────────────────────────────────────────
-  // LOCATION — where they are
-  // Critical for: timezone scheduling, market segmentation, local targeting
-  // ─────────────────────────────────────────────────────────────────
+  // ── CLASSIFICATION ────────────────────────
+  workType    WorkType?
+  budgetRange BudgetRange?
+  urgency     Urgency?
+  source      LeadSource?
 
-  country   String?   // e.g. "Bangladesh"
-  city      String?   // e.g. "Dhaka"
-  area      String?   // e.g. "Mirpur" — useful for hyperlocal BD targeting
-  timezone  String?   // e.g. "Asia/Dhaka" — critical for send time calculation
+  // ✅ ADDED — tags for flexible filtering
+  // e.g. ["hot", "needs-website", "nz-client", "follow-up-week-3"]
+  tags String[]
 
-  // ─────────────────────────────────────────────────────────────────
-  // QUICK CAPTURE — the most important feature for daily use
-  //
-  // You're scrolling Facebook and see a salon with a bad website.
-  // You don't have time to fill a full form.
-  // quickNote lets you capture the insight immediately:
-  //   "bad website, no booking system, runs ads but no landing page"
-  // Then enrich it properly later.
-  // ─────────────────────────────────────────────────────────────────
-
-  quickNote    String?   // raw capture note — what caught your attention
-  capturedFrom String?   // where you found them e.g. "Facebook feed", "Instagram explore"
-  capturedAt   DateTime? // when you spotted them (may differ from createdAt)
-
-  // ─────────────────────────────────────────────────────────────────
-  // PROBLEMS OBSERVED — why this lead needs your services
-  //
-  // This is the secret weapon. When you see a lead's problem instantly
-  // and record it, your outreach email can reference it specifically.
-  // "I noticed your salon doesn't have an online booking system"
-  // is 10x more effective than a generic cold email.
-  //
-  // Stored as String[] so you can tag multiple problems per lead
-  // and filter by problem type later.
-  // ─────────────────────────────────────────────────────────────────
-
-  observedProblems  String[]  // problems YOU spotted
-  // Examples of values:
-  // "no_website"
-  // "bad_website"          — old, slow, ugly
-  // "no_booking_system"
-  // "no_whatsapp_button"
-  // "no_google_maps"
-  // "no_social_media"
-  // "inactive_social"      — hasn't posted in months
-  // "no_online_menu"       — restaurants
-  // "no_ssl"               — not https
-  // "mobile_not_friendly"
-  // "no_email_capture"
-  // "running_ads_no_landing_page"  — spending money but losing leads
-  // "competitor_has_better_site"
-  // "no_marketing"
-  // "no_seo"
-
-  // ─────────────────────────────────────────────────────────────────
-  // LEAD CLASSIFICATION — what kind of work do they need
-  // ─────────────────────────────────────────────────────────────────
-
-  workType     WorkType?   // SERVICE (ongoing) or PROJECT (one-time)
-  budgetRange  BudgetRange? // estimated budget tier
-  urgency      Urgency?    // how urgently do they need this
-  source       LeadSource? // how you found them
-
-  // ─────────────────────────────────────────────────────────────────
-  // PIPELINE STATUS — where they are in your sales process
-  // ─────────────────────────────────────────────────────────────────
-
+  // ── PIPELINE ──────────────────────────────
   status          LeadStatus @default(NEW)
-  statusUpdatedAt DateTime   @default(now()) // when did status last change
-                                             // tells you: how long stuck in a stage
+  statusUpdatedAt DateTime   @default(now())
 
-  // Engagement flags — these are permanent signals
-  isActive        Boolean @default(false)  // true once they reply — NEVER resets
-  hasReplied      Boolean @default(false)  // ever replied to any message
-  isInterested    Boolean @default(false)  // manually set: they showed real interest
-  unsubscribed    Boolean @default(false)  // opted out — never contact again
+  isActive       Boolean   @default(false)
+  hasReplied     Boolean   @default(false)
+  isInterested   Boolean   @default(false)
+  unsubscribed   Boolean   @default(false)
 
-  // Contact tracking
-  campaignRunning  Boolean   @default(false) // in an active campaign right now
-  lastContactedAt  DateTime?                 // when last email/msg sent
-  totalEmailsSent  Int       @default(0)     // total outreach attempts across all campaigns
-  lastReplyAt      DateTime?                 // when they last replied
+  campaignRunning Boolean   @default(false)
+  lastContactedAt DateTime?
+  totalEmailsSent Int       @default(0)
+  lastReplyAt     DateTime?
 
-  priority     Priority  @default(MEDIUM)
-  isPinned     Boolean   @default(false)  // pin to top of leads list
-  isFavorite   Boolean   @default(false)  // star/bookmark
+  priority   Priority @default(MEDIUM)
+  isPinned   Boolean  @default(false)
+  isFavorite Boolean  @default(false)
 
-
+  // ── AI ENRICHMENT ─────────────────────────
   enrichmentStatus EnrichmentStatus @default(PENDING)
   enrichmentError  String?
   aiEnrichedAt     DateTime?
+  aiScore          Int?
+  aiSummary        String?
+  aiPainPoints     String[]
+  aiEmailOpener    String?
+  aiAdCopy         String?
 
-  aiScore          Int?      // 1-10 quality score
-  aiSummary        String?   // 2-sentence business description
-  aiPainPoints     String[]  // AI-detected pain points
-  aiEmailOpener    String?   // personalized first line for cold email
-  aiAdCopy         String?   // if found via Facebook Ad Library: their ad copy
-                             // gold for personalization
+  notes         String?
+  internalLabel String?
 
-  notes            String?   // freeform notes (markdown supported)
-  internalLabel    String?   // private label you set (e.g. "best BD lead this week")
-
- 
   softDeleted Boolean   @default(false)
   deletedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-
-
+  // Relations
   campaignLeads CampaignLead[]
-  replies       Reply[]
-  conversation  Conversation?
   notifications Notification[]
   emailQueue    EmailQueue[]
+  followUps     FollowUp[]     // ✅ ADDED
 
-
-  @@unique([userId, email])             // no duplicate emails per user (when email exists)
-
+  @@unique([userId, email])
   @@index([userId])
-  @@index([userId, status])             // filter by status (most common query)
-  @@index([userId, source])             // analytics: which source converts best
-  @@index([userId, priority])           // "show me all HIGH priority leads"
-  @@index([userId, isActive])           // "show me all active leads"
-  @@index([userId, hasReplied])         // "who has replied"
-  @@index([userId, isInterested])       // "who is interested"
-  @@index([userId, isPinned])           // pinned leads always fast to fetch
-  @@index([userId, workType])           // filter service vs project
-  @@index([userId, enrichmentStatus])   // cron: find leads needing enrichment
-  @@index([userId, softDeleted])        // exclude deleted leads from all queries
-  @@index([userId, campaignRunning])    // find leads in active campaigns
-  @@index([createdAt])                  // sort by newest
-  @@index([statusUpdatedAt])            // find leads stuck in a stage too long
-  @@index([observedProblems])           // filter by problem type (GIN index in postgres)
+  @@index([userId, status])
+  @@index([userId, source])
+  @@index([userId, priority])
+  @@index([userId, isActive])
+  @@index([userId, hasReplied])
+  @@index([userId, isInterested])
+  @@index([userId, isPinned])
+  @@index([userId, workType])
+  @@index([userId, enrichmentStatus])
+  @@index([userId, softDeleted])
+  @@index([userId, campaignRunning])
+  @@index([createdAt])
+  @@index([statusUpdatedAt])
+  @@index([tags])              // ✅ ADDED — GIN index for array search
+  @@index([observedProblems])
 }
 
-// ─────────────────────────────────────────────────────────────────
-// ENUMS — all possible values clearly defined
-// ─────────────────────────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
-
 model Template {
-  id        String       @id @default(cuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  name      String
-  type      TemplateType
+  name     String
+  type     TemplateType
+  subjectA String
+  subjectB String?
+  body     String
 
-  subjectA  String       // A/B test subject line A
-  subjectB  String?      // optional B variant
-  body      String       // supports {{name}}, {{business}}, {{pain_point}}, {{your_name}}, {{your_service}}
+  // ✅ ADDED — tells the UI which variables this template uses
+  // e.g. ["business_name", "city", "pain_point", "your_name"]
+  // Auto-extracted from body on save, shown in template editor
+  usedVariables String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations — which campaigns use this template at each step
-  campaignsAsInitial    Campaign[] @relation("InitialTemplate")
-  campaignsAsFollowup1  Campaign[] @relation("Followup1Template")
-  campaignsAsFollowup2  Campaign[] @relation("Followup2Template")
-  campaignsAsFinal      Campaign[] @relation("FinalTemplate")
-  emailQueue            EmailQueue[]
+  campaignsAsInitial   Campaign[] @relation("InitialTemplate")
+  campaignsAsFollowup1 Campaign[] @relation("Followup1Template")
+  campaignsAsFollowup2 Campaign[] @relation("Followup2Template")
+  campaignsAsFinal     Campaign[] @relation("FinalTemplate")
+  emailQueue           EmailQueue[]
 
-  // Indexes for better query performance
   @@index([userId])
   @@index([type])
   @@index([createdAt])
@@ -578,20 +389,23 @@ model Template {
 }
 
 model Campaign {
-  id        String         @id @default(cuid())
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  name      String
-  status    CampaignStatus @default(DRAFT)
+  name   String
+  status CampaignStatus @default(DRAFT)
 
-  // Mailbox to send from
+  // ✅ ADDED — targeting info (used by AI agent + labelling)
+  category String?   // e.g. "car wash"
+  country  String?   // e.g. "New Zealand"
+  city     String?   // e.g. "Auckland"
+
   mailboxId String
-  mailbox   Mailbox        @relation(fields: [mailboxId], references: [id])
+  mailbox   Mailbox @relation(fields: [mailboxId], references: [id])
 
-  // Templates
   initialTemplateId   String
-  initialTemplate     Template @relation("InitialTemplate", fields: [initialTemplateId], references: [id])
+  initialTemplate     Template  @relation("InitialTemplate", fields: [initialTemplateId], references: [id])
   followup1TemplateId String?
   followup1Template   Template? @relation("Followup1Template", fields: [followup1TemplateId], references: [id])
   followup2TemplateId String?
@@ -599,30 +413,26 @@ model Campaign {
   finalTemplateId     String?
   finalTemplate       Template? @relation("FinalTemplate", fields: [finalTemplateId], references: [id])
 
-  // Follow-up timing (in days after previous email)
   followup1Days Int @default(3)
   followup2Days Int @default(5)
   finalDays     Int @default(7)
 
-  // Send window — "09:00-11:00" in recipient local time
   sendWindow String @default("09:00-11:00")
 
-  // Bounce rate tracking
-  totalSent    Int @default(0)
-  totalBounced Int @default(0)
-  autoPaused   Boolean @default(false) // true if bounce rate hit 5%
+  totalSent    Int     @default(0)
+  totalBounced Int     @default(0)
+  autoPaused   Boolean @default(false)
 
   launchedAt  DateTime?
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  // Relations
   campaignLeads CampaignLead[]
   emailQueue    EmailQueue[]
   notifications Notification[]
+  aiAgentJobs   AIAgentJob[]   // ✅ ADDED
 
-  // Indexes for better query performance
   @@index([userId])
   @@index([status])
   @@index([mailboxId])
@@ -640,26 +450,21 @@ model CampaignLead {
   leadId     String
   lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  // Which A/B subject was assigned to this lead
-  assignedSubject String? // "A" or "B"
+  assignedSubject String?
 
-  // Per-lead timestamps within this campaign
   sentAt          DateTime?
-  openedAt        DateTime? // from pixel tracking (best-effort)
+  openedAt        DateTime?
   repliedAt       DateTime?
   followup1SentAt DateTime?
   followup2SentAt DateTime?
   finalSentAt     DateTime?
 
-  // Per-lead status in this campaign
-  bounced   Boolean @default(false)
+  bounced      Boolean @default(false)
   unsubscribed Boolean @default(false)
 
   createdAt DateTime @default(now())
 
-  @@unique([campaignId, leadId]) // a lead can only be in a campaign once
-
-  // Indexes for better query performance
+  @@unique([campaignId, leadId])
   @@index([campaignId])
   @@index([leadId])
   @@index([sentAt])
@@ -668,31 +473,33 @@ model CampaignLead {
 }
 
 model EmailQueue {
-  id           String          @id @default(cuid())
-  campaignId   String
-  campaign     Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  leadId       String
-  lead         Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  mailboxId    String
-  mailbox      Mailbox         @relation(fields: [mailboxId], references: [id])
-  templateId   String
-  template     Template        @relation(fields: [templateId], references: [id])
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  mailboxId  String
+  mailbox    Mailbox  @relation(fields: [mailboxId], references: [id])
+  templateId String
+  template   Template @relation(fields: [templateId], references: [id])
 
-  templateType TemplateType    // INITIAL | FOLLOWUP_1 | etc.
-  subject      String          // resolved subject (after A/B assignment)
-  body         String          // resolved body (after variable substitution)
+  templateType TemplateType
+  subject      String
+  // ✅ NOTE: storing resolved body per lead is correct for audit trail
+  // but consider a bodyHash field to deduplicate storage if scale becomes issue
+  body         String
+  bodyHash     String?  // ✅ ADDED — SHA256 of body, for dedup analytics
 
-  scheduledAt  DateTime        // UTC — calculated from lead timezone + send window
-  status       EmailQueueStatus @default(PENDING)
+  scheduledAt DateTime
+  status      EmailQueueStatus @default(PENDING)
 
-  sentAt       DateTime?
-  failedAt     DateTime?
-  failReason   String?
-  retryCount   Int @default(0)
+  sentAt     DateTime?
+  failedAt   DateTime?
+  failReason String?
+  retryCount Int @default(0)
 
   createdAt DateTime @default(now())
 
-  // Indexes for better query performance
   @@index([campaignId])
   @@index([leadId])
   @@index([mailboxId])
@@ -703,48 +510,7 @@ model EmailQueue {
   @@index([createdAt])
 }
 
-model Reply {
-  id        String   @id @default(cuid())
-  leadId    String
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  mailboxId String
-  mailbox   Mailbox  @relation(fields: [mailboxId], references: [id])
 
-  fromEmail   String
-  subject     String
-  body        String   // full email body
-  threadId    String?  // Gmail/IMAP thread reference
-  receivedAt  DateTime
-
-  isRead      Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  // Indexes for better query performance
-  @@index([leadId])
-  @@index([mailboxId])
-  @@index([receivedAt])
-  @@index([isRead])
-  @@index([fromEmail])
-  @@index([leadId, receivedAt])
-  @@index([mailboxId, receivedAt])
-}
-
-model Conversation {
-  id     String @id @default(cuid())
-  leadId String @unique
-  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-
-  // Stored as JSON array: [{role: "user"|"lead", body, subject, sentAt}]
-  messages Json @default("[]")
-
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
-
-  // Indexes for better query performance
-  @@index([leadId])
-  @@index([updatedAt])
-}
 
 model Notification {
   id         String           @id @default(cuid())
@@ -755,13 +521,12 @@ model Notification {
   campaignId String?
   campaign   Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
-  type       NotificationType
-  message    String
-  isRead     Boolean @default(false)
+  type    NotificationType
+  message String
+  isRead  Boolean @default(false)
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  // Indexes for better query performance
   @@index([userId])
   @@index([leadId])
   @@index([campaignId])
@@ -771,4 +536,73 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@index([userId, type])
+}
+
+// ✅ ADDED — Manual follow-up scheduling
+// User picks a date per lead → cron checks daily → sends reminder notification
+model FollowUp {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId      String
+  lead        Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  scheduledAt DateTime       // user-chosen date/time (stored as UTC)
+  note        String?        // optional reminder e.g. "Ask about their budget"
+  status      FollowUpStatus @default(PENDING)
+  completedAt DateTime?      // when user marked it done or email was sent
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([leadId])
+  @@index([scheduledAt])                // cron: find all due follow-ups
+  @@index([status])
+  @@index([userId, status])             // "show me all my pending follow-ups"
+  @@index([userId, scheduledAt])        // "what's due this week for me"
+}
+
+// ✅ ADDED — AI Agent (Hermes) job tracking
+// Every lead sniper run is recorded here
+// Cron or webhook updates status as job progresses
+model AIAgentJob {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
+  // what the agent was asked to find
+  category   String            // e.g. "car wash"
+  country    String?           // e.g. "New Zealand"
+  city       String            // e.g. "Auckland"
+  maxResults Int    @default(50)
+
+  // job lifecycle
+  status      AgentJobStatus @default(QUEUED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorMsg    String?
+
+  // results summary
+  totalFound  Int @default(0)  // raw results from Google Maps
+  totalSaved  Int @default(0)  // after dedup + filter
+  totalSkipped Int @default(0) // duplicates or no-website leads skipped
+
+  // output — CSV file path on server or a public URL
+  outputFile  String?
+
+  // if user imported the CSV into a campaign, track it
+  importedAt         DateTime?
+  importedToCampaign String?   // campaignId it was imported into
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([status])
+  @@index([userId, status])
+  @@index([createdAt])
 }

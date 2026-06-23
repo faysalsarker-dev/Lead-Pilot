@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
@@ -44,14 +44,42 @@ import {
   Globe,
   Info,
 } from "lucide-react";
-import type { MailboxModel } from "@/app/generated/prisma/models";
-import type { MailboxType, MailboxStatus } from "@/app/generated/prisma/enums";
+import type {
+  Mailbox as PrismaMailbox,
+  MailboxType,
+  MailboxStatus,
+} from "@/app/generated/prisma/browser";
+import type {
+  CreateMailboxRequest,
+  UpdateMailboxRequest,
+} from "@/redux/features/mailboxes/mailboxes.api";
 
-// Use Prisma-generated Mailbox model type
-type MailboxFormValues = Partial<Omit<MailboxModel, "id" | "userId" | "createdAt" | "updatedAt">>;
+type MailboxFormValues = {
+  label: string;
+  fromName?: string;
+  replyTo?: string;
+  type: MailboxType;
+  isDefault: boolean;
+  isActive: boolean;
+  gmailEmail?: string;
+  gmailRefreshToken?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassEnc?: string;
+  smtpSsl?: boolean;
+  imapEnabled?: boolean;
+  imapHost?: string;
+  imapPort?: number;
+  imapUser?: string;
+  imapPassEnc?: string;
+  imapSsl?: boolean;
+  fromDomain?: string;
+  dailySendLimit?: number;
+};
 
 interface MailboxDialogProps {
-  mailbox?: MailboxModel | null;
+  mailbox?: PrismaMailbox | null;
   children?: React.ReactNode;
 }
 
@@ -191,8 +219,8 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
     }
   });
 
-  const mailboxType = (form.watch("type") || "GMAIL_OAUTH") as MailboxType;
-  const imapEnabled = form.watch("imapEnabled") ?? false;
+  const mailboxType = (useWatch({ control: form.control, name: "type", defaultValue: "GMAIL_OAUTH" }) || "GMAIL_OAUTH") as MailboxType;
+  const imapEnabled = useWatch({ control: form.control, name: "imapEnabled", defaultValue: false }) ?? false;
 
   const handleTestConnection = async () => {
     setTestingConnection(true);
@@ -217,24 +245,126 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
   async function onSubmit(values: MailboxFormValues) {
     try {
       if (isEditing && mailbox) {
-        await updateMailbox({
-          id: mailbox.id,
-          data: values as Record<string, unknown>,
-        }).unwrap();
+        const updateData: UpdateMailboxRequest = {
+          label: values.label,
+          fromName: values.fromName,
+          replyTo: values.replyTo,
+          isDefault: values.isDefault,
+          isActive: values.isActive,
+          dailySendLimit: values.dailySendLimit,
+          gmailRefreshToken: values.gmailRefreshToken,
+          smtpHost: values.smtpHost,
+          smtpPort: values.smtpPort,
+          smtpUser: values.smtpUser,
+          smtpPassEnc: values.smtpPassEnc,
+          smtpSsl: values.smtpSsl,
+          imapEnabled: values.imapEnabled,
+          imapHost: values.imapHost,
+          imapPort: values.imapPort,
+          imapUser: values.imapUser,
+          imapPassEnc: values.imapPassEnc,
+          imapSsl: values.imapSsl,
+          fromDomain: values.fromDomain,
+        };
+
+        await updateMailbox({ id: mailbox.id, data: updateData }).unwrap();
         toast.success("Mailbox updated successfully");
       } else {
-        await createMailbox(values as Record<string, unknown>).unwrap();
+        let createData: CreateMailboxRequest;
+
+        switch (mailboxType) {
+          case "GMAIL_OAUTH":
+            createData = {
+              type: "GMAIL_OAUTH",
+              label: values.label,
+              fromName: values.fromName,
+              replyTo: values.replyTo,
+              isDefault: values.isDefault,
+              isActive: values.isActive,
+              dailySendLimit: values.dailySendLimit,
+              gmailRefreshToken: values.gmailRefreshToken ?? "",
+            };
+            break;
+          case "GMAIL_IMAP":
+            createData = {
+              type: "GMAIL_IMAP",
+              label: values.label,
+              fromName: values.fromName,
+              replyTo: values.replyTo,
+              isDefault: values.isDefault,
+              isActive: values.isActive,
+              dailySendLimit: values.dailySendLimit,
+              gmailEmail: values.gmailEmail ?? "",
+              imapEnabled: values.imapEnabled ?? false,
+              imapHost: values.imapHost,
+              imapPort: values.imapPort,
+              imapUser: values.imapUser,
+              imapPassEnc: values.imapPassEnc,
+              imapSsl: values.imapSsl,
+            };
+            break;
+          case "CUSTOM_SMTP":
+            createData = {
+              type: "CUSTOM_SMTP",
+              label: values.label,
+              fromName: values.fromName,
+              replyTo: values.replyTo,
+              isDefault: values.isDefault,
+              isActive: values.isActive,
+              dailySendLimit: values.dailySendLimit,
+              smtpHost: values.smtpHost ?? "",
+              smtpPort: values.smtpPort ?? 587,
+              smtpUser: values.smtpUser ?? "",
+              smtpPassEnc: values.smtpPassEnc ?? "",
+              smtpSsl: values.smtpSsl,
+              imapEnabled: values.imapEnabled,
+              imapHost: values.imapHost,
+              imapPort: values.imapPort,
+              imapUser: values.imapUser,
+              imapPassEnc: values.imapPassEnc,
+              imapSsl: values.imapSsl,
+            };
+            break;
+          case "CLOUDFLARE_WORKER":
+            createData = {
+              type: "CLOUDFLARE_WORKER",
+              label: values.label,
+              fromName: values.fromName,
+              replyTo: values.replyTo,
+              isDefault: values.isDefault,
+              isActive: values.isActive,
+              dailySendLimit: values.dailySendLimit,
+              fromDomain: values.fromDomain ?? "",
+            };
+            break;
+          default:
+            createData = {
+              type: "GMAIL_OAUTH",
+              label: values.label,
+              fromName: values.fromName,
+              replyTo: values.replyTo,
+              isDefault: values.isDefault,
+              isActive: values.isActive,
+              dailySendLimit: values.dailySendLimit,
+              gmailRefreshToken: values.gmailRefreshToken ?? "",
+            };
+        }
+
+        await createMailbox(createData).unwrap();
         toast.success("Mailbox created successfully");
       }
+
       form.reset();
       setOpen(false);
     } catch (error: unknown) {
-      const errorMessage = error && typeof error === "object" && "data" in error 
-        ? (error as Record<string, unknown>).data
-        : "Failed to save mailbox";
-      const message = errorMessage && typeof errorMessage === "object" && "message" in errorMessage
-        ? (errorMessage as Record<string, unknown>).message
-        : null;
+      const errorMessage =
+        error && typeof error === "object" && "data" in error
+          ? (error as Record<string, unknown>).data
+          : "Failed to save mailbox";
+      const message =
+        errorMessage && typeof errorMessage === "object" && "message" in errorMessage
+          ? (errorMessage as Record<string, unknown>).message
+          : null;
       toast.error((message as string) || "Failed to save mailbox");
     }
   }
@@ -245,8 +375,9 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || <Button size="sm">{isEditing ? "Edit" : "Add Mailbox"}</Button>}
+        
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl! max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {typeInfo.icon}
@@ -546,6 +677,7 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                                 placeholder="your-email@example.com"
                                 disabled={isLoading}
                                 {...field}
+                                value={field.value ?? ""}
                               />
                             </FormControl>
                             <FormMessage />
@@ -564,6 +696,7 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                                 placeholder="Your SMTP password"
                                 disabled={isLoading}
                                 {...field}
+                                value={field.value ?? ""}
                               />
                             </FormControl>
                             <FormDescription className="text-xs">
@@ -649,6 +782,7 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                                   placeholder={mailboxType === "GMAIL_IMAP" ? "imap.gmail.com" : "imap.example.com"}
                                   disabled={isLoading}
                                   {...field}
+                                  value={field.value ?? ""}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -667,6 +801,7 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                                   placeholder="993"
                                   disabled={isLoading}
                                   {...field}
+                                  value={field.value ?? ""}
                                 />
                               </FormControl>
                               <FormDescription className="text-xs">
@@ -751,6 +886,7 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                             min="1"
                             disabled={isLoading}
                             {...field}
+                            value={field.value ?? ""}
                           />
                         </FormControl>
                         <FormDescription>

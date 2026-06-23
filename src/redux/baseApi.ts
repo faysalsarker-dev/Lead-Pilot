@@ -11,8 +11,6 @@ export const baseApi = createApi({
     "Campaigns",
     "Templates",
     "Mailboxes",
-    "Conversations",
-    "Replies",
     "Notifications",
     "EmailQueue",
   ],

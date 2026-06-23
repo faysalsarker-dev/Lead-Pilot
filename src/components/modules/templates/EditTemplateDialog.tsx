@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,13 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useUpdateTemplateMutation } from "@/redux/hooks";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { FileText, FlaskConical, Loader2, MailCheck, Sparkles } from "lucide-react";
 import type { Template } from "@/redux/features/templates/templates.api";
 
 const updateTemplateSchema = z.object({
@@ -72,11 +74,30 @@ export function EditTemplateDialog({ template, children }: EditTemplateDialogPro
     },
   });
 
+  useEffect(() => {
+    if (!open) return;
+
+    form.reset({
+      name: template.name,
+      type: template.type,
+      subjectA: template.subjectA || "",
+      subjectB: template.subjectB || "",
+      body: template.body || "",
+    });
+  }, [form, open, template]);
+
+  const bodyValue = form.watch("body") || "";
+  const subjectBValue = form.watch("subjectB") || "";
+  const wordCount = bodyValue.trim().split(/\s+/).filter(Boolean).length;
+
   async function onSubmit(values: UpdateTemplateFormValues) {
     try {
       await updateTemplate({
         id: template.id,
-        data: values,
+        data: {
+          ...values,
+          subjectB: values.subjectB || undefined,
+        },
       }).unwrap();
 
       toast.success("Template updated successfully");
@@ -89,68 +110,104 @@ export function EditTemplateDialog({ template, children }: EditTemplateDialogPro
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children || <Button size="sm" variant="outline">Edit</Button>}
+        {children || (
+          <Button size="sm" variant="outline">
+            Edit
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit Email Template</DialogTitle>
-          <DialogDescription>
-            Update template content and A/B test variants
-          </DialogDescription>
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto p-0">
+        <DialogHeader className="border-b px-6 py-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="h-5 w-5" />
+            </span>
+            <div>
+              <DialogTitle>Edit template</DialogTitle>
+              <DialogDescription className="mt-1">
+                Update sequence placement, subject variants, and body copy.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name and Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Template Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Feature Announcement" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Template Type *</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-6 py-5">
+            <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template name *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Input placeholder="Feature announcement follow-up" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="INITIAL">Initial Outreach</SelectItem>
-                        <SelectItem value="FOLLOWUP_1">Follow-up 1</SelectItem>
-                        <SelectItem value="FOLLOWUP_2">Follow-up 2</SelectItem>
-                        <SelectItem value="FINAL">Final Follow-up</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sequence stage *</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="INITIAL">Initial email</SelectItem>
+                          <SelectItem value="FOLLOWUP_1">Follow-up 1</SelectItem>
+                          <SelectItem value="FOLLOWUP_2">Follow-up 2</SelectItem>
+                          <SelectItem value="FINAL">Final email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            {/* A/B Testing Section */}
-            <div className="border rounded-lg p-4 bg-muted/40">
-              <h3 className="font-semibold text-sm mb-4">A/B Test Subjects</h3>
+              <aside className="rounded-lg border bg-muted/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <MailCheck className="h-4 w-4 text-primary" />
+                  Delivery fit
+                </div>
+                <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+                  <p>{wordCount} words in the current body.</p>
+                  <p>{subjectBValue ? "A/B subject testing is enabled." : "Using one subject line."}</p>
+                  <p>Keep edits aligned with the stage this template belongs to.</p>
+                </div>
+              </aside>
+            </section>
+
+            <Separator />
+
+            <section className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold">Subject variants</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tune the subject lines without losing the body context below.
+                  </p>
+                </div>
+                <Badge variant="outline" className="gap-1.5">
+                  <FlaskConical className="h-3.5 w-3.5" />
+                  {subjectBValue ? "A/B enabled" : "Single subject"}
+                </Badge>
+              </div>
+
               <Tabs defaultValue="subject-a" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="subject-a">Subject A (Primary)</TabsTrigger>
-                  <TabsTrigger value="subject-b">Subject B (Optional)</TabsTrigger>
+                  <TabsTrigger value="subject-a">Subject A</TabsTrigger>
+                  <TabsTrigger value="subject-b">Subject B</TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="subject-a" className="space-y-4 mt-4">
+                <TabsContent value="subject-a" className="mt-4">
                   <FormField
                     control={form.control}
                     name="subjectA"
@@ -158,73 +215,68 @@ export function EditTemplateDialog({ template, children }: EditTemplateDialogPro
                       <FormItem>
                         <FormLabel>Subject A *</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="Check out our latest update"
-                            {...field}
-                          />
+                          <Input placeholder="Quick idea for {{businessName}}" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          This is the main subject line used for this template
-                        </FormDescription>
+                        <FormDescription>Main subject line used for this template.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </TabsContent>
-
-                <TabsContent value="subject-b" className="space-y-4 mt-4">
+                <TabsContent value="subject-b" className="mt-4">
                   <FormField
                     control={form.control}
                     name="subjectB"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Subject B (Optional)</FormLabel>
+                        <FormLabel>Subject B</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="Quick question about your business"
-                            {...field}
-                          />
+                          <Input placeholder="Worth a quick look, {{firstName}}?" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          Leave empty to disable A/B testing for this template
-                        </FormDescription>
+                        <FormDescription>Leave empty to disable A/B testing.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </TabsContent>
               </Tabs>
-            </div>
+            </section>
 
-            {/* Body */}
+            <Separator />
+
             <FormField
               control={form.control}
               name="body"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Body *</FormLabel>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <FormLabel>Email body *</FormLabel>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {wordCount} words
+                    </span>
+                  </div>
                   <FormControl>
                     <Textarea
-                      placeholder="Hi {{firstName}},
+                      placeholder={`Hi {{firstName}},
 
 I wanted to reach out because...
 
-Best regards"
-                      className="resize-none font-mono text-sm"
-                      rows={8}
+Best,
+{{your_name}}`}
+                      className="min-h-64 resize-y font-mono text-sm leading-6"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Use {{firstName}}, {{lastName}}, {{email}} for personalization
+                    Common placeholders: {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}, {"{{businessName}}"}.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -235,7 +287,7 @@ Best regards"
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Updating..." : "Update Template"}
+                {isLoading ? "Updating..." : "Update template"}
               </Button>
             </div>
           </form>
