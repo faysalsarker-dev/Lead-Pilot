@@ -1,9 +1,12 @@
-"use client"
 
 import * as React from "react"
-import { NavMain } from "@/components/blocks/nav-main"
-import { NavSecondary } from "@/components/blocks/nav-secondary"
-import { NavUser } from "@/components/blocks/nav-user"
+import Link from "next/link"
+import { 
+  NavMain,
+    NavSecondary,
+ 
+ NavUser 
+} from "@/components/blocks"
 import {
   Sidebar,
   SidebarContent,
@@ -12,119 +15,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import {
-  LayoutDashboardIcon,
-  UsersIcon,
-  Globe2Icon,
-  MegaphoneIcon,
-  FileTextIcon,
-  InboxIcon,
-  BellIcon,
-  Settings2Icon,
-  CircleHelpIcon,
-  Zap,
-} from "lucide-react"
+} from "@/components/ui"
+import { data } from "@/utils/sidebar-routes"
+import { Zap } from "lucide-react"
+import getUser from "@/lib/get-user"
 
-// ─── Static badge counts (replace with dynamic data later) ────────────────
-const BADGE_COUNTS = {
-  inbox: 3,        // unread lead replies
-  notifications: 5, // unread notifications
-  campaigns: 2,    // actively running campaigns
-}
 
-// ─── Badge component ───────────────────────────────────────────────────────
-function NavBadge({ count, variant = "default" }: { count: number; variant?: "default" | "danger" | "blue" }) {
-  if (count === 0) return null
 
-  const styles = {
-    default: "bg-muted text-muted-foreground",
-    danger:  "bg-red-500 text-white",
-    blue:    "bg-blue-500 text-white",
-  }
 
-  return (
-    <span
-      className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${styles[variant]}`}
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  )
-}
 
-// ─── Data ──────────────────────────────────────────────────────────────────
-const data = {
-  user: {
-    name: "Faysal Sarker",
-    email: "faysal@pitchpilot.dev",
-    avatar: "",
-  },
-
-  // Primary navigation — core pages
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: <LayoutDashboardIcon />,
-      badge: null,
-    },
-    {
-      title: "Leads",
-      url: "/leads",
-      icon: <UsersIcon />,
-      badge: null,
-    },
-    {
-      title: "Generate Leads",
-      url: "/generate-leads",
-      icon: <Globe2Icon />,
-      badge: null,
-    },
-    {
-      title: "Campaigns",
-      url: "/campaigns",
-      icon: <MegaphoneIcon />,
-      badge: BADGE_COUNTS.campaigns > 0
-        ? <NavBadge count={BADGE_COUNTS.campaigns} variant="blue" />
-        : null,
-    },
-    {
-      title: "Templates",
-      url: "/templates",
-      icon: <FileTextIcon />,
-      badge: null,
-    },
-    {
-      title: "Inbox",
-      url: "/inbox",
-      icon: <InboxIcon />,
-      badge: <NavBadge count={BADGE_COUNTS.inbox} variant="danger" />,
-    },
-    {
-      title: "Notifications",
-      url: "/notifications",
-      icon: <BellIcon />,
-      badge: <NavBadge count={BADGE_COUNTS.notifications} variant="danger" />,
-    },
-  ],
-
-  // Bottom secondary navigation
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings/mailboxes",
-      icon: <Settings2Icon />,
-    },
-    {
-      title: "Get Help",
-      url: "/help",
-      icon: <CircleHelpIcon />,
-    },
-  ],
-}
 
 // ─── AppSidebar ────────────────────────────────────────────────────────────
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export async function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+const user = await getUser()
   return (
     <Sidebar collapsible="offcanvas" {...props}>
 
@@ -136,12 +39,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <a href="/dashboard" className="flex items-center gap-2">
+              <Link href="/dashboard" className="flex items-center gap-2">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                   <Zap className="size-4" />
                 </span>
                 <span className="text-base font-bold tracking-tight">PitchPilot</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -155,7 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
 
     </Sidebar>

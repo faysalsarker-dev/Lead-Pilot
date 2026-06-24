@@ -11,18 +11,16 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
+  Button,
+  Badge,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+  Skeleton,
+} from "@/components/ui";
 import {
   Activity,
   AlertTriangle,
@@ -40,7 +38,12 @@ import {
 const ALL_PROVIDERS = "ALL_PROVIDERS";
 const ALL_STATUSES = "ALL_STATUSES";
 
-type ProviderFilter = typeof ALL_PROVIDERS | "GMAIL_OAUTH" | "GMAIL_IMAP" | "CUSTOM_SMTP" | "CLOUDFLARE_WORKER";
+type ProviderFilter =
+  | typeof ALL_PROVIDERS
+  | "GMAIL_OAUTH"
+  | "GMAIL_IMAP"
+  | "CUSTOM_SMTP"
+  | "CLOUDFLARE_WORKER";
 type StatusFilter = typeof ALL_STATUSES | "ACTIVE" | "INACTIVE" | "DEFAULT";
 
 function getMailboxAddress(mailbox: {
@@ -49,7 +52,13 @@ function getMailboxAddress(mailbox: {
   gmailEmail?: string | null;
   replyTo?: string | null;
 }) {
-  return mailbox.smtpUser || mailbox.imapUser || mailbox.gmailEmail || mailbox.replyTo || "";
+  return (
+    mailbox.smtpUser ||
+    mailbox.imapUser ||
+    mailbox.gmailEmail ||
+    mailbox.replyTo ||
+    ""
+  );
 }
 
 function formatMailboxType(type: string) {
@@ -67,7 +76,8 @@ export default function MailboxesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [providerFilter, setProviderFilter] = useState<ProviderFilter>(ALL_PROVIDERS);
+  const [providerFilter, setProviderFilter] =
+    useState<ProviderFilter>(ALL_PROVIDERS);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(ALL_STATUSES);
 
   const { data: mailboxesData, isLoading } = useGetMailboxesQuery({
@@ -76,7 +86,12 @@ export default function MailboxesPage() {
   });
 
   const mailboxes = mailboxesData?.data || [];
-  const pagination = mailboxesData?.pagination || { total: 0, page: 1, limit: 10, totalPages: 1 };
+  const pagination = mailboxesData?.pagination || {
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  };
 
   if (isLoading) {
     return (
@@ -102,11 +117,19 @@ export default function MailboxesPage() {
 
   const activeMailboxes = mailboxes.filter((m) => m.isActive).length;
   const inactiveMailboxes = mailboxes.length - activeMailboxes;
-  const gmailMailboxes = mailboxes.filter((m) => m.type === "GMAIL_OAUTH").length;
-  const gmailImapMailboxes = mailboxes.filter((m) => m.type === "GMAIL_IMAP").length;
-  const smtpMailboxes = mailboxes.filter((m) => m.type === "CUSTOM_SMTP").length;
+  const gmailMailboxes = mailboxes.filter(
+    (m) => m.type === "GMAIL_OAUTH",
+  ).length;
+  const gmailImapMailboxes = mailboxes.filter(
+    (m) => m.type === "GMAIL_IMAP",
+  ).length;
+  const smtpMailboxes = mailboxes.filter(
+    (m) => m.type === "CUSTOM_SMTP",
+  ).length;
   const defaultMailbox = mailboxes.find((m) => m.isDefault);
-  const receivingEnabled = mailboxes.filter((m) => m.imapEnabled || m.type === "GMAIL_OAUTH").length;
+  const receivingEnabled = mailboxes.filter(
+    (m) => m.imapEnabled || m.type === "GMAIL_OAUTH",
+  ).length;
   const hasMailboxes = pagination.total > 0;
   const hasInactiveMailboxes = inactiveMailboxes > 0;
 
@@ -115,8 +138,13 @@ export default function MailboxesPage() {
     const address = getMailboxAddress(mailbox).toLowerCase();
     const label = mailbox.label.toLowerCase();
     const type = formatMailboxType(mailbox.type).toLowerCase();
-    const matchesSearch = !query || label.includes(query) || address.includes(query) || type.includes(query);
-    const matchesProvider = providerFilter === ALL_PROVIDERS || mailbox.type === providerFilter;
+    const matchesSearch =
+      !query ||
+      label.includes(query) ||
+      address.includes(query) ||
+      type.includes(query);
+    const matchesProvider =
+      providerFilter === ALL_PROVIDERS || mailbox.type === providerFilter;
     const matchesStatus =
       statusFilter === ALL_STATUSES ||
       (statusFilter === "ACTIVE" && mailbox.isActive) ||
@@ -135,7 +163,10 @@ export default function MailboxesPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-muted-foreground">
+            <Badge
+              variant="outline"
+              className="gap-1.5 px-2.5 py-1 text-muted-foreground"
+            >
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
               Sender infrastructure
             </Badge>
@@ -147,9 +178,12 @@ export default function MailboxesPage() {
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Mailboxes</h1>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Mailboxes
+            </h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Connect sending accounts, monitor readiness, and route campaign replies from one clean control center.
+              Connect sending accounts, monitor readiness, and route campaign
+              replies from one clean control center.
             </p>
           </div>
         </div>
@@ -167,7 +201,9 @@ export default function MailboxesPage() {
             <div className="grid gap-0 sm:grid-cols-3">
               <div className="border-b p-5 sm:border-b-0 sm:border-r">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-muted-foreground">Total accounts</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total accounts
+                  </p>
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Mail className="h-4 w-4" />
                   </span>
@@ -182,7 +218,9 @@ export default function MailboxesPage() {
 
               <div className="border-b p-5 sm:border-b-0 sm:border-r">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-muted-foreground">Readiness</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Readiness
+                  </p>
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
                     <Activity className="h-4 w-4" />
                   </span>
@@ -190,12 +228,16 @@ export default function MailboxesPage() {
                 <div className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">
                   {connectedRate}%
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Accounts available for sending</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Accounts available for sending
+                </p>
               </div>
 
               <div className="p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-muted-foreground">Reply tracking</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Reply tracking
+                  </p>
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700">
                     <Inbox className="h-4 w-4" />
                   </span>
@@ -203,7 +245,9 @@ export default function MailboxesPage() {
                 <div className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">
                   {receivingEnabled}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Mailboxes watching for replies</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Mailboxes watching for replies
+                </p>
               </div>
             </div>
           </CardContent>
@@ -230,22 +274,29 @@ export default function MailboxesPage() {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                <div className="text-lg font-semibold tabular-nums">{gmailMailboxes + gmailImapMailboxes}</div>
+                <div className="text-lg font-semibold tabular-nums">
+                  {gmailMailboxes + gmailImapMailboxes}
+                </div>
                 <div className="text-[11px] text-muted-foreground">Gmail</div>
               </div>
               <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                <div className="text-lg font-semibold tabular-nums">{smtpMailboxes}</div>
+                <div className="text-lg font-semibold tabular-nums">
+                  {smtpMailboxes}
+                </div>
                 <div className="text-[11px] text-muted-foreground">SMTP</div>
               </div>
               <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                <div className="text-lg font-semibold tabular-nums">{defaultMailbox ? 1 : 0}</div>
+                <div className="text-lg font-semibold tabular-nums">
+                  {defaultMailbox ? 1 : 0}
+                </div>
                 <div className="text-[11px] text-muted-foreground">Default</div>
               </div>
             </div>
             <div className="flex items-start gap-3 rounded-lg border bg-muted/25 p-3">
               <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
               <p className="text-sm leading-5 text-muted-foreground">
-                Keep one primary mailbox as default, then rotate additional active accounts to protect deliverability.
+                Keep one primary mailbox as default, then rotate additional
+                active accounts to protect deliverability.
               </p>
             </div>
           </CardContent>
@@ -260,9 +311,12 @@ export default function MailboxesPage() {
                 <Server className="h-5 w-5" />
               </span>
               <div className="space-y-1">
-                <h2 className="text-base font-semibold">No mailboxes connected yet</h2>
+                <h2 className="text-base font-semibold">
+                  No mailboxes connected yet
+                </h2>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Start with Gmail OAuth for the smoothest setup, or connect a custom SMTP account when you need a dedicated sending domain.
+                  Start with Gmail OAuth for the smoothest setup, or connect a
+                  custom SMTP account when you need a dedicated sending domain.
                 </p>
               </div>
             </div>
@@ -323,7 +377,9 @@ export default function MailboxesPage() {
               </div>
               <Select
                 value={providerFilter}
-                onValueChange={(value) => setProviderFilter(value as ProviderFilter)}
+                onValueChange={(value) =>
+                  setProviderFilter(value as ProviderFilter)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Provider" />
@@ -333,12 +389,16 @@ export default function MailboxesPage() {
                   <SelectItem value="GMAIL_OAUTH">Gmail OAuth</SelectItem>
                   <SelectItem value="GMAIL_IMAP">Gmail IMAP</SelectItem>
                   <SelectItem value="CUSTOM_SMTP">Custom SMTP</SelectItem>
-                  <SelectItem value="CLOUDFLARE_WORKER">Cloudflare Worker</SelectItem>
+                  <SelectItem value="CLOUDFLARE_WORKER">
+                    Cloudflare Worker
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select
                 value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                onValueChange={(value) =>
+                  setStatusFilter(value as StatusFilter)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
@@ -364,9 +424,12 @@ export default function MailboxesPage() {
           ) : (
             <div className="flex min-h-65 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
               <Mail className="mb-4 h-10 w-10 text-muted-foreground/70" />
-              <h3 className="text-base font-semibold">Build your sending pool</h3>
+              <h3 className="text-base font-semibold">
+                Build your sending pool
+              </h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                Add a Gmail or SMTP mailbox, set the default sender, and keep reply tracking enabled for cleaner follow-up workflows.
+                Add a Gmail or SMTP mailbox, set the default sender, and keep
+                reply tracking enabled for cleaner follow-up workflows.
               </p>
               <MailboxDialog>
                 <Button className="mt-5 gap-2">

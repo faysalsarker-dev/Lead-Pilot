@@ -53,7 +53,7 @@ import {
 import { useDeleteMailboxMutation, useSetDefaultMailboxMutation } from "@/redux/hooks";
 import { toast } from "sonner";
 import { MailboxDialog } from "./MailboxDialog";
-import type { Mailbox } from "@/redux/features/mailboxes/mailboxes.api";
+import type { Mailbox } from "@/redux/features/mailbox/mailbox.api";
 
 function getMutationMessage(error: unknown, fallback: string) {
   const maybeError = error as { data?: { message?: string } };
@@ -85,16 +85,7 @@ function getMailboxAddress(mailbox: Mailbox) {
   return mailbox.smtpUser || mailbox.imapUser || mailbox.gmailEmail || mailbox.replyTo || "";
 }
 
-function formatLastSync(date?: Date | string | null) {
-  if (!date) return "Never";
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
 
 export function MailboxesTable({ mailboxes, onDelete }: MailboxesTableProps) {
   const [rowSelection, setRowSelection] = useState({});
@@ -183,15 +174,7 @@ export function MailboxesTable({ mailboxes, onDelete }: MailboxesTableProps) {
         </Badge>
       ),
     },
-    {
-      accessorKey: "lastImapSync",
-      header: "Last Sync",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatLastSync(row.original.lastImapSync)}
-        </span>
-      ),
-    },
+    
     {
       id: "actions",
       cell: ({ row }) => {

@@ -116,7 +116,6 @@ enum EnrichmentStatus {
 }
 
 enum MailboxType {
-  CLOUDFLARE_WORKER
   GMAIL_IMAP
   GMAIL_OAUTH
   CUSTOM_SMTP
@@ -124,12 +123,9 @@ enum MailboxType {
 
 enum MailboxStatus {
   UNTESTED
+  TESTING
   CONNECTED
-  SMTP_ERROR
-  IMAP_ERROR
-  AUTH_ERROR
-  RATE_LIMITED
-  DISCONNECTED
+  FAILED
 }
 
 // ✅ ADDED — AI agent job lifecycle
@@ -186,46 +182,47 @@ model User {
   @@index([createdAt])
 }
 
+
+
 model Mailbox {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  label       String
-  fromName    String?
-  replyTo     String?
-  type        MailboxType
-  isDefault   Boolean     @default(false)
-  isActive    Boolean     @default(true)
+  label     String
+  fromName  String?
+  fromEmail String?   // hello@yourdomain.com — used as From address for CUSTOM_SMTP
+  replyTo   String?
+  type      MailboxType
+  isDefault Boolean     @default(false)
+  isActive  Boolean     @default(true)
 
   connectionStatus MailboxStatus @default(UNTESTED)
   lastTestedAt     DateTime?
   lastError        String?
 
+  // Gmail (GMAIL_IMAP + GMAIL_OAUTH)
   gmailEmail        String?
-  gmailRefreshToken String?
+  gmailRefreshToken String?   // AES-256-GCM encrypted, GMAIL_OAUTH only
 
+  // SMTP — used by CUSTOM_SMTP and GMAIL_IMAP
   smtpHost    String?
   smtpPort    Int?
   smtpUser    String?
-  smtpPassEnc String?
-  smtpSsl     Boolean @default(true)
+  smtpPassEnc String?   // AES-256-GCM encrypted
+  smtpSsl     Boolean   @default(true)
 
-  imapEnabled  Boolean   @default(false)
-  imapHost     String?
-  imapPort     Int?
-  imapUser     String?
-  imapPassEnc  String?
-  imapSsl      Boolean   @default(true)
-  imapUidNext  Int?
-  lastImapSync DateTime?
+  // IMAP — on-demand reply count only, no background sync, no email storage
+  imapEnabled Boolean @default(false)
+  imapHost    String?
+  imapPort    Int?
+  imapUser    String?
+  imapPassEnc String?   // AES-256-GCM encrypted
+  imapSsl     Boolean   @default(true)
 
-
-  sendCountToday Int       @default(0)
-  dailySendLimit Int       @default(400)
+  sendCountToday Int      @default(0)
+  dailySendLimit Int      @default(400)
   lastSentAt     DateTime?
-
-
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -238,8 +235,9 @@ model Mailbox {
   @@index([userId, isActive])
   @@index([userId, isDefault])
   @@index([userId, type])
-  @@index([imapEnabled, lastImapSync])
+  @@index([userId, imapEnabled])
 }
+
 
 model Lead {
   id     String @id @default(cuid())

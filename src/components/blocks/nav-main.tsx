@@ -36,6 +36,7 @@ export function NavMain({
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                   tooltip={item.title}
+                  size={"md"}
                   className={isActive ? "bg-primary text-primary-foreground" : ""}
                   onClick={() => router.push(item.url)}
                 >

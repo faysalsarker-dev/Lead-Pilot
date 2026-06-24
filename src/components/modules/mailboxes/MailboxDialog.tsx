@@ -5,12 +5,10 @@ import { useForm, useWatch } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import {
+
   Form,
   FormControl,
   FormDescription,
@@ -18,467 +16,462 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import {
+
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useCreateMailboxMutation, useUpdateMailboxMutation } from "@/redux/hooks";
+ Input,
+ Button, 
+  Checkbox, 
+   Badge ,
+   Alert,
+    AlertDescription
+   } from "@/components/ui";
+import {
+  useCreateMailboxMutation,
+  useUpdateMailboxMutation,
+} from "@/redux/hooks";
 import { toast } from "sonner";
 import {
   Loader2,
   CheckCircle2,
-  AlertCircle,
+  XCircle,
+  Clock,
   Mail,
-  Shield,
   Server,
-  Globe,
-  Info,
+  ShieldCheck,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Wifi,
 } from "lucide-react";
-import type {
-  Mailbox as PrismaMailbox,
-  MailboxType,
-  MailboxStatus,
-} from "@/app/generated/prisma/browser";
-import type {
-  CreateMailboxRequest,
-  UpdateMailboxRequest,
-} from "@/redux/features/mailboxes/mailboxes.api";
+
+// ── Prisma-generated types only ───────────────────────────────────────────────
+import type { MailboxType, MailboxStatus } from "@/app/generated/prisma/browser";
+import type { MailboxModel as Mailbox } from "@/app/generated/prisma/models";
+import {
+  useTestMailboxMutation,
+  type CreateMailboxRequest,
+  type UpdateMailboxRequest,
+} from "@/redux/features/mailbox/mailbox.api";
+
+// ── Form shape ────────────────────────────────────────────────────────────────
 
 type MailboxFormValues = {
   label: string;
-  fromName?: string;
-  replyTo?: string;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
   type: MailboxType;
   isDefault: boolean;
   isActive: boolean;
-  gmailEmail?: string;
-  gmailRefreshToken?: string;
-  smtpHost?: string;
-  smtpPort?: number;
-  smtpUser?: string;
-  smtpPassEnc?: string;
-  smtpSsl?: boolean;
-  imapEnabled?: boolean;
-  imapHost?: string;
-  imapPort?: number;
-  imapUser?: string;
-  imapPassEnc?: string;
-  imapSsl?: boolean;
-  fromDomain?: string;
-  dailySendLimit?: number;
+  dailySendLimit: number;
+  // Gmail
+  gmailEmail: string;
+  gmailRefreshToken: string;
+  // SMTP
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPassEnc: string;
+  smtpSsl: boolean;
+  // IMAP
+  imapEnabled: boolean;
+  imapHost: string;
+  imapPort: number;
+  imapUser: string;
+  imapPassEnc: string;
+  imapSsl: boolean;
 };
 
-interface MailboxDialogProps {
-  mailbox?: PrismaMailbox | null;
-  children?: React.ReactNode;
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const MAILBOX_TYPES: { value: MailboxType; label: string; description: string; icon: React.ReactNode }[] = [
+  {
+    value: "GMAIL_OAUTH",
+    label: "Gmail — Connect with Google",
+    description: "Best for personal Gmail. Uses OAuth2 — no password needed.",
+    icon: <Mail className="w-4 h-4" />,
+  },
+  {
+    value: "GMAIL_IMAP",
+    label: "Gmail — App Password",
+    description: "Personal Gmail with a 16-character App Password.",
+    icon: <Mail className="w-4 h-4" />,
+  },
+  {
+    value: "CUSTOM_SMTP",
+    label: "Custom SMTP",
+    description: "Works with Resend, Brevo, Mailgun, your own server, or any SMTP provider.",
+    icon: <Server className="w-4 h-4" />,
+  },
+];
+
+const STATUS_CONFIG: Record<MailboxStatus, { label: string; className: string; icon: React.ReactNode }> = {
+  UNTESTED: {
+    label: "Not tested",
+    className: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+    icon: <Clock className="w-3 h-3" />,
+  },
+  TESTING: {
+    label: "Testing…",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    icon: <Loader2 className="w-3 h-3 animate-spin" />,
+  },
+  CONNECTED: {
+    label: "Connected",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+  FAILED: {
+    label: "Failed",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    icon: <XCircle className="w-3 h-3" />,
+  },
+};
+
+// ── Default form values ───────────────────────────────────────────────────────
+
+function buildDefaults(mailbox?: Mailbox | null): MailboxFormValues {
+  return {
+    label:            mailbox?.label             ?? "",
+    fromName:         mailbox?.fromName          ?? "",
+    fromEmail:        mailbox?.fromEmail         ?? "",
+    replyTo:          mailbox?.replyTo           ?? "",
+    type:             (mailbox?.type as MailboxType) ?? "GMAIL_OAUTH",
+    isDefault:        mailbox?.isDefault         ?? false,
+    isActive:         mailbox?.isActive          ?? true,
+    dailySendLimit:   mailbox?.dailySendLimit     ?? 400,
+    gmailEmail:       mailbox?.gmailEmail        ?? "",
+    gmailRefreshToken: "",  // never pre-fill secrets
+    smtpHost:         mailbox?.smtpHost          ?? "",
+    smtpPort:         mailbox?.smtpPort          ?? 587,
+    smtpUser:         mailbox?.smtpUser          ?? "",
+    smtpPassEnc:      "",  // never pre-fill secrets
+    smtpSsl:          mailbox?.smtpSsl           ?? true,
+    imapEnabled:      mailbox?.imapEnabled       ?? false,
+    imapHost:         mailbox?.imapHost          ?? "",
+    imapPort:         mailbox?.imapPort          ?? 993,
+    imapUser:         mailbox?.imapUser          ?? "",
+    imapPassEnc:      "",  // never pre-fill secrets
+    imapSsl:          mailbox?.imapSsl           ?? true,
+  };
 }
 
-// Status badge component
-function StatusBadge({ status }: { status?: MailboxStatus }) {
-  if (!status) return null;
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-  const statusConfig: Record<MailboxStatus, { label: string; color: string; icon: React.ReactNode }> = {
-    UNTESTED: {
-      label: "Not Tested",
-      color: "bg-gray-100 text-gray-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-    CONNECTED: {
-      label: "Connected",
-      color: "bg-green-100 text-green-800",
-      icon: <CheckCircle2 className="w-4 h-4" />,
-    },
-    SMTP_ERROR: {
-      label: "SMTP Error",
-      color: "bg-red-100 text-red-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-    IMAP_ERROR: {
-      label: "IMAP Error",
-      color: "bg-red-100 text-red-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-    AUTH_ERROR: {
-      label: "Auth Error",
-      color: "bg-orange-100 text-orange-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-    RATE_LIMITED: {
-      label: "Rate Limited",
-      color: "bg-yellow-100 text-yellow-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-    DISCONNECTED: {
-      label: "Disconnected",
-      color: "bg-gray-100 text-gray-800",
-      icon: <AlertCircle className="w-4 h-4" />,
-    },
-  };
-
-  const config = statusConfig[status];
+function StatusBadge({ status }: { status: MailboxStatus }) {
+  const cfg = STATUS_CONFIG[status];
   return (
-    <Badge variant="outline" className={`${config.color} gap-1`}>
-      {config.icon}
-      {config.label}
+    <Badge variant="outline" className={`gap-1 text-xs font-medium ${cfg.className}`}>
+      {cfg.icon}
+      {cfg.label}
     </Badge>
   );
 }
 
-// Type description helper
-function getMailboxTypeInfo(type: MailboxType) {
-  const info: Record<MailboxType, { label: string; description: string; icon: React.ReactNode }> = {
-    GMAIL_OAUTH: {
-      label: "Gmail (OAuth)",
-      description: "Gmail with full OAuth2 - most reliable for sending and receiving",
-      icon: <Mail className="w-5 h-5" />,
-    },
-    GMAIL_IMAP: {
-      label: "Gmail (IMAP)",
-      description: "Gmail using IMAP with App Password - polling every 15 minutes",
-      icon: <Mail className="w-5 h-5" />,
-    },
-    CUSTOM_SMTP: {
-      label: "Custom SMTP",
-      description: "Any email host (Zoho, Namecheap, Fastmail, etc.) - requires IMAP for replies",
-      icon: <Server className="w-5 h-5" />,
-    },
-    CLOUDFLARE_WORKER: {
-      label: "Cloudflare Worker",
-      description: "Custom domain with real-time webhook detection - no polling needed",
-      icon: <Globe className="w-5 h-5" />,
-    },
-  };
-  return info[type];
+function PasswordInput({
+  placeholder,
+  disabled,
+  value,
+  onChange,
+}: {
+  placeholder?: string;
+  disabled?: boolean;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        tabIndex={-1}
+      >
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+    </div>
+  );
+}
+
+function SectionCard({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-lg border bg-muted/30 p-4 space-y-4 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+interface MailboxDialogProps {
+  mailbox?: Mailbox | null;
+  children?: React.ReactNode;
 }
 
 export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [testingConnection, setTestingConnection] = useState(false);
+  const [open, setOpen]                     = useState(false);
+
+
   const [createMailbox, { isLoading: isCreating }] = useCreateMailboxMutation();
   const [updateMailbox, { isLoading: isUpdating }] = useUpdateMailboxMutation();
+const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
+
 
   const isEditing = !!mailbox;
-  const isLoading = isCreating || isUpdating || testingConnection;
+  const isSaving  = isCreating || isUpdating;
+  const isLoading = isSaving || testingConnection;
 
   const form = useForm<MailboxFormValues>({
     mode: "onBlur",
-    defaultValues: mailbox ? {
-      label: mailbox.label,
-      fromName: mailbox.fromName ?? "",
-      replyTo: mailbox.replyTo ?? "",
-      type: mailbox.type as MailboxType,
-      isDefault: mailbox.isDefault,
-      isActive: mailbox.isActive,
-      gmailEmail: mailbox.gmailEmail ?? "",
-      gmailRefreshToken: mailbox.gmailRefreshToken ?? "",
-      smtpHost: mailbox.smtpHost ?? "",
-      smtpPort: mailbox.smtpPort ?? 587,
-      smtpUser: mailbox.smtpUser ?? "",
-      smtpPassEnc: mailbox.smtpPassEnc ?? "",
-      smtpSsl: mailbox.smtpSsl ?? true,
-      imapEnabled: mailbox.imapEnabled ?? false,
-      imapHost: mailbox.imapHost ?? "",
-      imapPort: mailbox.imapPort ?? 993,
-      imapUser: mailbox.imapUser ?? "",
-      imapPassEnc: mailbox.imapPassEnc ?? "",
-      imapSsl: mailbox.imapSsl ?? true,
-      fromDomain: mailbox.fromDomain ?? "",
-      dailySendLimit: mailbox.dailySendLimit ?? 400,
-    } : {
-      label: "",
-      fromName: "",
-      replyTo: "",
-      type: "GMAIL_OAUTH" as MailboxType,
-      isDefault: false,
-      isActive: true,
-      gmailEmail: "",
-      gmailRefreshToken: "",
-      smtpHost: "",
-      smtpPort: 587,
-      smtpUser: "",
-      smtpPassEnc: "",
-      smtpSsl: true,
-      imapEnabled: false,
-      imapHost: "",
-      imapPort: 993,
-      imapUser: "",
-      imapPassEnc: "",
-      imapSsl: true,
-      fromDomain: "",
-      dailySendLimit: 400,
-    }
+    defaultValues: buildDefaults(mailbox),
   });
 
-  const mailboxType = (useWatch({ control: form.control, name: "type", defaultValue: "GMAIL_OAUTH" }) || "GMAIL_OAUTH") as MailboxType;
-  const imapEnabled = useWatch({ control: form.control, name: "imapEnabled", defaultValue: false }) ?? false;
+  const type        = useWatch({ control: form.control, name: "type" }) as MailboxType;
+  const imapEnabled = useWatch({ control: form.control, name: "imapEnabled" }) ?? false;
 
-  const handleTestConnection = async () => {
-    setTestingConnection(true);
-    try {
-      const response = await fetch(`/api/mailboxes/${mailbox?.id}/test-connection`, {
-        method: "POST",
-      });
-      const data = await response.json();
+  // ── Test connection ─────────────────────────────────────────────────────────
 
-      if (response.ok) {
-        toast.success("Connection test successful! ✓");
-      } else {
-        toast.error(data.message || "Connection test failed");
-      }
-    } catch {
-      toast.error("Failed to test connection");
-    } finally {
-      setTestingConnection(false);
-    }
-  };
+  async function handleTestConnection() {
+    if (!mailbox?.id) return;
+  await testMailbox(mailbox.id).unwrap();
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
   async function onSubmit(values: MailboxFormValues) {
     try {
       if (isEditing && mailbox) {
-        const updateData: UpdateMailboxRequest = {
-          label: values.label,
-          fromName: values.fromName,
-          replyTo: values.replyTo,
-          isDefault: values.isDefault,
-          isActive: values.isActive,
+        const data: UpdateMailboxRequest = {
+          label:          values.label          || undefined,
+          fromName:       values.fromName       || undefined,
+          fromEmail:      values.fromEmail      || undefined,
+          replyTo:        values.replyTo        || undefined,
+          isDefault:      values.isDefault,
+          isActive:       values.isActive,
           dailySendLimit: values.dailySendLimit,
-          gmailRefreshToken: values.gmailRefreshToken,
-          smtpHost: values.smtpHost,
-          smtpPort: values.smtpPort,
-          smtpUser: values.smtpUser,
-          smtpPassEnc: values.smtpPassEnc,
-          smtpSsl: values.smtpSsl,
-          imapEnabled: values.imapEnabled,
-          imapHost: values.imapHost,
-          imapPort: values.imapPort,
-          imapUser: values.imapUser,
-          imapPassEnc: values.imapPassEnc,
-          imapSsl: values.imapSsl,
-          fromDomain: values.fromDomain,
+          gmailRefreshToken: values.gmailRefreshToken || undefined,
+          smtpHost:       values.smtpHost       || undefined,
+          smtpPort:       values.smtpPort       || undefined,
+          smtpUser:       values.smtpUser       || undefined,
+          smtpPassEnc:    values.smtpPassEnc    || undefined,
+          smtpSsl:        values.smtpSsl,
+          imapEnabled:    values.imapEnabled,
+          imapHost:       values.imapHost       || undefined,
+          imapPort:       values.imapPort       || undefined,
+          imapUser:       values.imapUser       || undefined,
+          imapPassEnc:    values.imapPassEnc    || undefined,
+          imapSsl:        values.imapSsl,
+        };
+        await updateMailbox({ id: mailbox.id, data }).unwrap();
+        toast.success("Mailbox updated.");
+      } else {
+        // Build typed create payload per type
+        const base = {
+          label:          values.label,
+          fromName:       values.fromName       || undefined,
+          replyTo:        values.replyTo        || undefined,
+          isDefault:      values.isDefault,
+          isActive:       values.isActive,
+          dailySendLimit: values.dailySendLimit,
         };
 
-        await updateMailbox({ id: mailbox.id, data: updateData }).unwrap();
-        toast.success("Mailbox updated successfully");
-      } else {
         let createData: CreateMailboxRequest;
 
-        switch (mailboxType) {
-          case "GMAIL_OAUTH":
-            createData = {
-              type: "GMAIL_OAUTH",
-              label: values.label,
-              fromName: values.fromName,
-              replyTo: values.replyTo,
-              isDefault: values.isDefault,
-              isActive: values.isActive,
-              dailySendLimit: values.dailySendLimit,
-              gmailRefreshToken: values.gmailRefreshToken ?? "",
-            };
-            break;
-          case "GMAIL_IMAP":
-            createData = {
-              type: "GMAIL_IMAP",
-              label: values.label,
-              fromName: values.fromName,
-              replyTo: values.replyTo,
-              isDefault: values.isDefault,
-              isActive: values.isActive,
-              dailySendLimit: values.dailySendLimit,
-              gmailEmail: values.gmailEmail ?? "",
-              imapEnabled: values.imapEnabled ?? false,
-              imapHost: values.imapHost,
-              imapPort: values.imapPort,
-              imapUser: values.imapUser,
-              imapPassEnc: values.imapPassEnc,
-              imapSsl: values.imapSsl,
-            };
-            break;
-          case "CUSTOM_SMTP":
-            createData = {
-              type: "CUSTOM_SMTP",
-              label: values.label,
-              fromName: values.fromName,
-              replyTo: values.replyTo,
-              isDefault: values.isDefault,
-              isActive: values.isActive,
-              dailySendLimit: values.dailySendLimit,
-              smtpHost: values.smtpHost ?? "",
-              smtpPort: values.smtpPort ?? 587,
-              smtpUser: values.smtpUser ?? "",
-              smtpPassEnc: values.smtpPassEnc ?? "",
-              smtpSsl: values.smtpSsl,
-              imapEnabled: values.imapEnabled,
-              imapHost: values.imapHost,
-              imapPort: values.imapPort,
-              imapUser: values.imapUser,
-              imapPassEnc: values.imapPassEnc,
-              imapSsl: values.imapSsl,
-            };
-            break;
-          case "CLOUDFLARE_WORKER":
-            createData = {
-              type: "CLOUDFLARE_WORKER",
-              label: values.label,
-              fromName: values.fromName,
-              replyTo: values.replyTo,
-              isDefault: values.isDefault,
-              isActive: values.isActive,
-              dailySendLimit: values.dailySendLimit,
-              fromDomain: values.fromDomain ?? "",
-            };
-            break;
-          default:
-            createData = {
-              type: "GMAIL_OAUTH",
-              label: values.label,
-              fromName: values.fromName,
-              replyTo: values.replyTo,
-              isDefault: values.isDefault,
-              isActive: values.isActive,
-              dailySendLimit: values.dailySendLimit,
-              gmailRefreshToken: values.gmailRefreshToken ?? "",
-            };
+        if (values.type === "GMAIL_OAUTH") {
+          createData = {
+            ...base,
+            type: "GMAIL_OAUTH",
+            gmailEmail:        values.gmailEmail,
+            gmailRefreshToken: values.gmailRefreshToken,
+          };
+        } else if (values.type === "GMAIL_IMAP") {
+          createData = {
+            ...base,
+            type:        "GMAIL_IMAP",
+            gmailEmail:  values.gmailEmail,
+            smtpPassEnc: values.smtpPassEnc,  // App Password goes in smtpPassEnc
+            imapEnabled: values.imapEnabled,
+            imapHost:    values.imapHost    || undefined,
+            imapPort:    values.imapPort    || undefined,
+            imapUser:    values.imapUser    || undefined,
+            imapPassEnc: values.imapPassEnc || undefined,
+            imapSsl:     values.imapSsl,
+          };
+        } else {
+          // CUSTOM_SMTP
+          createData = {
+            ...base,
+            type:        "CUSTOM_SMTP",
+            fromEmail:   values.fromEmail   || undefined,
+            smtpHost:    values.smtpHost,
+            smtpPort:    values.smtpPort,
+            smtpUser:    values.smtpUser,
+            smtpPassEnc: values.smtpPassEnc,
+            smtpSsl:     values.smtpSsl,
+            imapEnabled: values.imapEnabled,
+            imapHost:    values.imapHost    || undefined,
+            imapPort:    values.imapPort    || undefined,
+            imapUser:    values.imapUser    || undefined,
+            imapPassEnc: values.imapPassEnc || undefined,
+            imapSsl:     values.imapSsl,
+          };
         }
 
         await createMailbox(createData).unwrap();
-        toast.success("Mailbox created successfully");
+        toast.success("Mailbox added.");
       }
 
       form.reset();
       setOpen(false);
     } catch (error: unknown) {
-      const errorMessage =
-        error && typeof error === "object" && "data" in error
-          ? (error as Record<string, unknown>).data
-          : "Failed to save mailbox";
-      const message =
-        errorMessage && typeof errorMessage === "object" && "message" in errorMessage
-          ? (errorMessage as Record<string, unknown>).message
-          : null;
-      toast.error((message as string) || "Failed to save mailbox");
+      const msg =
+        error &&
+        typeof error === "object" &&
+        "data" in error &&
+        error.data &&
+        typeof error.data === "object" &&
+        "message" in error.data
+          ? String((error.data as Record<string, unknown>).message)
+          : "Failed to save mailbox.";
+      toast.error(msg);
     }
   }
 
-  const typeInfo = getMailboxTypeInfo(mailboxType);
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  const selectedType = MAILBOX_TYPES.find((t) => t.value === type);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children || <Button size="sm">{isEditing ? "Edit" : "Add Mailbox"}</Button>}
-        
+        {children ?? (
+          <Button size="sm" variant="default">
+            {isEditing ? "Edit mailbox" : "Add mailbox"}
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="max-w-5xl! max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {typeInfo.icon}
-            {isEditing ? "Edit Mailbox" : "Add New Mailbox"}
-          </DialogTitle>
-          <DialogDescription className="flex items-center justify-between">
-            <span>
-              {isEditing
-                ? "Update your email mailbox configuration"
-                : "Connect a new email account for sending campaigns"}
-            </span>
-            {isEditing && mailbox && (
-              <StatusBadge status={mailbox.connectionStatus} />
+
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-semibold">
+              {isEditing ? "Edit mailbox" : "Add mailbox"}
+            </DialogTitle>
+            {isEditing && mailbox?.connectionStatus && (
+              <StatusBadge status={mailbox.connectionStatus as MailboxStatus} />
             )}
-          </DialogDescription>
+          </div>
           {isEditing && mailbox?.lastError && (
-            <Alert variant="destructive" className="mt-2">
+            <Alert variant="destructive" className="mt-2 py-2">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{mailbox.lastError}</AlertDescription>
+              <AlertDescription className="text-xs">{mailbox.lastError}</AlertDescription>
             </Alert>
           )}
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Configuration Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Basic Configuration</h3>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-1">
+
+            {/* ── Identity ─────────────────────────────────────────────────── */}
+            <SectionCard>
+              <SectionLabel>Identity</SectionLabel>
 
               <FormField
                 control={form.control}
                 name="label"
+                rules={{ required: "Label is required" }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mailbox Label *</FormLabel>
+                    <FormLabel>Label</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="e.g., Main Outreach, Follow-ups, VIP Leads"
-                        disabled={isLoading}
-                        {...field}
-                      />
+                      <Input placeholder="e.g. Main outreach, Follow-ups" disabled={isLoading} {...field} />
                     </FormControl>
-                    <FormDescription>
-                      A friendly name to identify this mailbox
-                    </FormDescription>
+                    <FormDescription>A name to identify this mailbox in your dashboard.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="fromName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>From Name</FormLabel>
+                      <FormLabel>Sender name</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="e.g., Faysal Sarker"
-                          disabled={isLoading}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
+                        <Input placeholder="e.g. Faysal Sarker" disabled={isLoading} {...field} />
                       </FormControl>
-                      <FormDescription>
-                        Sender name shown in emails
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="replyTo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reply-To Email</FormLabel>
+                      <FormLabel>Reply-to</FormLabel>
                       <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="Optional override address"
-                          disabled={isLoading}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
+                        <Input type="email" placeholder="optional@yourdomain.com" disabled={isLoading} {...field} />
                       </FormControl>
-                      <FormDescription>
-                        Where replies are directed (optional)
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-            </div>
 
-            {/* Email Provider Selection */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Email Provider</h3>
+              {/* fromEmail — only for CUSTOM_SMTP */}
+              {type === "CUSTOM_SMTP" && (
+                <FormField
+                  control={form.control}
+                  name="fromEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>From email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="hello@yourdomain.com" disabled={isLoading} {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The address recipients see. Must match your verified sending domain (e.g. Resend, Brevo).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </SectionCard>
+
+            {/* ── Provider ─────────────────────────────────────────────────── */}
+            <SectionCard>
+              <SectionLabel>Provider</SectionLabel>
 
               <FormField
                 control={form.control}
@@ -486,489 +479,448 @@ export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Select value={field.value} onValueChange={field.onChange} disabled={isLoading || isEditing}>
-                        <SelectTrigger className="w-full">
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={isLoading || isEditing}
+                      >
+                        <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="GMAIL_OAUTH">
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4" />
-                              Gmail (OAuth)
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="GMAIL_IMAP">
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4" />
-                              Gmail (IMAP)
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="CUSTOM_SMTP">
-                            <div className="flex items-center gap-2">
-                              <Server className="w-4 h-4" />
-                              Custom SMTP
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="CLOUDFLARE_WORKER">
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4" />
-                              Cloudflare Worker
-                            </div>
-                          </SelectItem>
+                          {MAILBOX_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              <div className="flex items-center gap-2">
+                                {t.icon}
+                                {t.label}
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </FormControl>
-                    <FormDescription className="flex items-start gap-2 pt-2">
-                      <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>{typeInfo.description}</span>
-                    </FormDescription>
+                    {selectedType && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        {selectedType.description}
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
+            </SectionCard>
 
-            {/* Configuration Tabs */}
-            <Tabs defaultValue="sending" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="sending">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Sending
-                </TabsTrigger>
-                {["GMAIL_IMAP", "CUSTOM_SMTP"].includes(mailboxType ?? "") && (
-                  <TabsTrigger value="receiving">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Receiving
-                  </TabsTrigger>
-                )}
-                {["GMAIL_OAUTH", "CUSTOM_SMTP"].includes(mailboxType ?? "") && (
-                  <TabsTrigger value="advanced">
-                    <Server className="w-4 h-4 mr-2" />
-                    Advanced
-                  </TabsTrigger>
-                )}
-              </TabsList>
+            {/* ── Credentials ──────────────────────────────────────────────── */}
+            <SectionCard>
+              <SectionLabel>
+                {type === "GMAIL_OAUTH" ? "OAuth credentials" :
+                 type === "GMAIL_IMAP"  ? "Gmail App Password" :
+                 "SMTP credentials"}
+              </SectionLabel>
 
-              {/* Sending Tab */}
-              <TabsContent value="sending" className="space-y-4 mt-4">
-                {mailboxType === "GMAIL_OAUTH" && (
-                  <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                    <FormField
-                      control={form.control}
-                      name="gmailRefreshToken"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <Shield className="w-4 h-4" />
-                            Gmail Refresh Token *
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Paste your refresh token here"
-                              type="password"
-                              disabled={isLoading}
-                              {...field}
-                              value={field.value ?? ""}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Get this from Google Cloud Console. Your refresh token is securely encrypted.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {mailboxType === "GMAIL_IMAP" && (
-                  <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                    <FormField
-                      control={form.control}
-                      name="gmailEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Gmail Address *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="your-email@gmail.com"
-                              disabled={isLoading}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Your Gmail account address
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {mailboxType === "CUSTOM_SMTP" && (
-                  <div className="space-y-4 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900">
-                    <h4 className="font-semibold text-sm">SMTP Configuration</h4>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="smtpHost"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SMTP Host *</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="smtp.example.com"
-                                disabled={isLoading}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="smtpPort"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SMTP Port *</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="587"
-                                disabled={isLoading}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription className="text-xs">
-                              587 (TLS) or 465 (SSL)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="smtpSsl"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2 mt-2">
-                          <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
-                          </FormControl>
-                          <FormLabel className="mt-0!">Use SSL/TLS</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="smtpUser"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username/Email *</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="your-email@example.com"
-                                disabled={isLoading}
-                                {...field}
-                                value={field.value ?? ""}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="smtpPassEnc"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password *</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="password"
-                                placeholder="Your SMTP password"
-                                disabled={isLoading}
-                                {...field}
-                                value={field.value ?? ""}
-                              />
-                            </FormControl>
-                            <FormDescription className="text-xs">
-                              Securely encrypted
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {mailboxType === "CLOUDFLARE_WORKER" && (
-                  <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-900">
-                    <FormField
-                      control={form.control}
-                      name="fromDomain"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Custom Domain *</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="example.com"
-                              disabled={isLoading}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Your custom domain configured with Cloudflare
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Receiving Tab - IMAP */}
-              {["GMAIL_IMAP", "CUSTOM_SMTP"].includes(mailboxType ?? "") && (
-                <TabsContent value="receiving" className="space-y-4 mt-4">
+              {/* GMAIL_OAUTH */}
+              {type === "GMAIL_OAUTH" && (
+                <div className="space-y-3">
                   <FormField
                     control={form.control}
-                    name="imapEnabled"
+                    name="gmailEmail"
                     render={({ field }) => (
-                      <FormItem className="flex items-center space-x-2">
+                      <FormItem>
+                        <FormLabel>Gmail address</FormLabel>
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                          <Input type="email" placeholder="you@gmail.com" disabled={isLoading} {...field} />
                         </FormControl>
-                        <div>
-                        <FormLabel className="mt-0!">Enable IMAP Reply Detection</FormLabel>
-                          <FormDescription>
-                            Monitor for replies (scanned every 15 minutes)
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  {imapEnabled && (
-                    <div className="space-y-4 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
-                      <h4 className="font-semibold text-sm">IMAP Configuration</h4>
-
-                      {mailboxType === "GMAIL_IMAP" && (
-                        <Alert variant="default" className="bg-blue-100 dark:bg-blue-900/30">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>
-                            Use your Gmail App Password (16 chars), not your regular password. Generate one in your Google Account security settings.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="imapHost"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>IMAP Host *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder={mailboxType === "GMAIL_IMAP" ? "imap.gmail.com" : "imap.example.com"}
-                                  disabled={isLoading}
-                                  {...field}
-                                  value={field.value ?? ""}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="imapPort"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>IMAP Port *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  placeholder="993"
-                                  disabled={isLoading}
-                                  {...field}
-                                  value={field.value ?? ""}
-                                />
-                              </FormControl>
-                              <FormDescription className="text-xs">
-                                Usually 993 (SSL) or 143 (TLS)
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="imapSsl"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center space-x-2">
-                            <FormControl>
-                              <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
-                            </FormControl>
-                            <FormLabel className="mt-0!">Use SSL/TLS</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="imapUser"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Username/Email *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder={mailboxType === "GMAIL_IMAP" ? "your-email@gmail.com" : "your-email@example.com"}
-                                  disabled={isLoading}
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="imapPassEnc"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Password/App Password *</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="password"
-                                  placeholder="Your IMAP password"
-                                  disabled={isLoading}
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormDescription className="text-xs">
-                                Securely encrypted
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
-              )}
-
-              {/* Advanced Settings Tab */}
-              {["GMAIL_OAUTH", "CUSTOM_SMTP"].includes(mailboxType ?? "") && (
-                <TabsContent value="advanced" className="space-y-4 mt-4">
                   <FormField
                     control={form.control}
-                    name="dailySendLimit"
+                    name="gmailRefreshToken"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Daily Send Limit</FormLabel>
+                        <FormLabel>Refresh token</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
+                          <PasswordInput
+                            placeholder={isEditing ? "Leave blank to keep existing token" : "Paste OAuth refresh token"}
                             disabled={isLoading}
-                            {...field}
-                            value={field.value ?? ""}
+                            value={field.value}
+                            onChange={field.onChange}
                           />
                         </FormControl>
                         <FormDescription>
-                          Maximum emails per day (default: 400 for Gmail)
+                          From Google Cloud Console → OAuth 2.0 credentials. Stored encrypted.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </div>
+              )}
 
+              {/* GMAIL_IMAP */}
+              {type === "GMAIL_IMAP" && (
+                <div className="space-y-3">
                   <FormField
                     control={form.control}
-                    name="isActive"
+                    name="gmailEmail"
                     render={({ field }) => (
-                      <FormItem className="flex items-center space-x-2">
+                      <FormItem>
+                        <FormLabel>Gmail address</FormLabel>
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                          <Input type="email" placeholder="you@gmail.com" disabled={isLoading} {...field} />
                         </FormControl>
-                        <div>
-                          <FormLabel className="mt-0!">Active</FormLabel>
-                          <FormDescription>
-                            When disabled, this mailbox won&apos;t be used for sending
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                </TabsContent>
+                  <FormField
+                    control={form.control}
+                    name="smtpPassEnc"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App Password</FormLabel>
+                        <FormControl>
+                          <PasswordInput
+                            placeholder={isEditing ? "Leave blank to keep existing" : "16-character App Password"}
+                            disabled={isLoading}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Generate at myaccount.google.com/apppasswords — requires 2FA enabled. Stored encrypted.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               )}
-            </Tabs>
 
-            {/* Default Mailbox Setting */}
-            <FormField
-              control={form.control}
-              name="isDefault"
-              render={({ field }) => (
-                <FormItem className="flex items-center space-x-3 border rounded-lg p-4 bg-muted/40">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
-                  </FormControl>
-                  <div className="flex-1">
-                    <FormLabel className="mt-0! font-semibold">Set as Default</FormLabel>
-                    <FormDescription>
-                      Use this mailbox for new campaigns by default
-                    </FormDescription>
+              {/* CUSTOM_SMTP */}
+              {type === "CUSTOM_SMTP" && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="smtpHost"
+                      render={({ field }) => (
+                        <FormItem className="col-span-2">
+                          <FormLabel>Host</FormLabel>
+                          <FormControl>
+                            <Input placeholder="smtp.resend.com" disabled={isLoading} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="smtpPort"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Port</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="587"
+                              disabled={isLoading}
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs">587 or 465</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </FormItem>
-              )}
-            />
 
-            {/* Action Buttons */}
-            <div className="flex justify-between gap-3 pt-4 border-t">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="smtpUser"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input placeholder="resend (or your email)" disabled={isLoading} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="smtpPassEnc"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password / API key</FormLabel>
+                          <FormControl>
+                            <PasswordInput
+                              placeholder={isEditing ? "Leave blank to keep existing" : "Your SMTP password or API key"}
+                              disabled={isLoading}
+                              value={field.value}
+                              onChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormDescription className="text-xs">Stored encrypted.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="smtpSsl"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 pt-1">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                        </FormControl>
+                        <FormLabel className="mt-0! font-normal">Use SSL (port 465). Uncheck for STARTTLS on 587.</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </SectionCard>
+
+            {/* ── IMAP — reply check ────────────────────────────────────────── */}
+            {(type === "CUSTOM_SMTP" || type === "GMAIL_IMAP") && (
+              <SectionCard>
+                <div className="flex items-start gap-3">
+                  <FormField
+                    control={form.control}
+                    name="imapEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 m-0">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-medium leading-none">Enable reply detection</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Checks for replies on demand via IMAP — nothing stored in the database.
+                    </p>
+                  </div>
+                </div>
+
+                {imapEnabled && (
+                  <div className="space-y-3 pt-1">
+                    {type === "GMAIL_IMAP" && (
+                      <Alert className="py-2">
+                        <ShieldCheck className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          For Gmail IMAP: host is <code>imap.gmail.com</code>, port <code>993</code>.
+                          Use the same App Password as above.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="imapHost"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>IMAP host</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={type === "GMAIL_IMAP" ? "imap.gmail.com" : "imap.example.com"}
+                                disabled={isLoading}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="imapPort"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Port</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="993"
+                                disabled={isLoading}
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">993 (SSL)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="imapUser"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={type === "GMAIL_IMAP" ? "you@gmail.com" : "you@example.com"}
+                                disabled={isLoading}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="imapPassEnc"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <PasswordInput
+                                placeholder={isEditing ? "Leave blank to keep existing" : "IMAP password"}
+                                disabled={isLoading}
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">Stored encrypted.</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="imapSsl"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center gap-2">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                          </FormControl>
+                          <FormLabel className="mt-0! font-normal">Use SSL</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* ── Settings ─────────────────────────────────────────────────── */}
+            <SectionCard>
+              <SectionLabel>Settings</SectionLabel>
+
+              <FormField
+                control={form.control}
+                name="dailySendLimit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Daily send limit</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        disabled={isLoading}
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cap emails per day. Gmail: 500. Resend free: 100. Brevo free: 300.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex flex-col gap-3 pt-1">
+                <FormField
+                  control={form.control}
+                  name="isDefault"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                      </FormControl>
+                      <div>
+                        <FormLabel className="mt-0!">Set as default</FormLabel>
+                        <FormDescription className="text-xs">
+                          New campaigns will use this mailbox unless you pick another.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                      </FormControl>
+                      <div>
+                        <FormLabel className="mt-0!">Active</FormLabel>
+                        <FormDescription className="text-xs">
+                          Inactive mailboxes are skipped during campaign sends.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </SectionCard>
+
+            {/* ── Actions ──────────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between pt-2 border-t">
               <div>
-                {isEditing && mailbox && (
+                {isEditing && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleTestConnection}
-                    disabled={isLoading || !mailbox.id}
+                    disabled={isLoading}
                     className="gap-2"
                   >
-                    {testingConnection && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Test Connection
+                    {testingConnection
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Wifi className="h-4 w-4" />}
+                    {testingConnection ? "Testing…" : "Test connection"}
                   </Button>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setOpen(false)}
                   disabled={isLoading}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading} className="gap-2">
-                  {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isLoading ? "Saving..." : isEditing ? "Update Mailbox" : "Create Mailbox"}
+                <Button type="submit" size="sm" disabled={isLoading} className="gap-2 min-w-24">
+                  {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isSaving ? "Saving…" : isEditing ? "Save changes" : "Add mailbox"}
                 </Button>
               </div>
             </div>
+
           </form>
         </Form>
       </DialogContent>

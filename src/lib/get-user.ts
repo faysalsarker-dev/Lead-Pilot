@@ -10,3 +10,17 @@ export default async function getUser() {
 
   return decodeAuthToken(token);
 }
+
+
+
+export type UserSessionData = {
+  name: string;
+  email: string;
+  picture: string | null;
+  sub: string;
+  id: string;
+  service: string;
+  iat: number;
+  exp: number;
+  jti: string;
+};

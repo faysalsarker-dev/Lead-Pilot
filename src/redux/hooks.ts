@@ -10,3 +10,14 @@ export {
   useRegisterMutation,
 } from "@/redux/features/auth/auth.api";
 
+export {
+  useCreateMailboxMutation,
+  useDeleteMailboxMutation,
+  useGetMailboxQuery,
+  useGetMailboxesQuery,
+  useLazyGetMailboxQuery,
+  useLazyGetMailboxesQuery,
+  useSetDefaultMailboxMutation,
+  useUpdateMailboxMutation,
+  useTestMailboxMutation,
+} from "@/redux/features/mailbox/mailbox.api";

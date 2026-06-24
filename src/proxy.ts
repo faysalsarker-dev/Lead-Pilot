@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import getUser from "@/lib/get-user";
+import { auth } from "./lib/auth";
 
 const protectedRoutes = ["/main"];
 const authRoutes = ["/login", "/register"];
@@ -9,8 +9,8 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
 
-  const user = await getUser();
-  
+const user = await auth()
+
 
   const isProtected = protectedRoutes.some((route) =>
     pathname.startsWith(route)
