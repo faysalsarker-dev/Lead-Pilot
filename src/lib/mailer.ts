@@ -156,9 +156,10 @@ async function createGmailOAuthTransport(
 export async function testMailboxConnection(
   mailbox: MailboxWithSecrets,
 ): Promise<void> {
+
   const transport = await createTransport(mailbox);
-  const result =   await transport.verify();
-  console.log("Mailbox connection test result:", result);
+  await transport.verify();
+
 }
 
 // ─── Send mail ────────────────────────────────────────────────────────────────

@@ -174,6 +174,38 @@ export function MailboxesTable({ mailboxes, onDelete }: MailboxesTableProps) {
         </Badge>
       ),
     },
+{
+  accessorKey: "connectionStatus",
+  header: "Test Status",
+  cell: ({ row }) => (
+    <Badge
+      variant="outline"
+      className={`gap-1
+        ${
+          row.original.connectionStatus === "CONNECTED"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+            : row.original.connectionStatus === "TESTING"
+            ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+            : row.original.connectionStatus === "FAILED"
+            ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300"
+        }
+      `}
+    >
+      {row.original.connectionStatus === "CONNECTED" && (
+        <ShieldCheck className="h-3 w-3" />
+      )}
+
+      {row.original.connectionStatus === "TESTING"
+        ? "Testing"
+        : row.original.connectionStatus === "CONNECTED"
+        ? "Connected"
+        : row.original.connectionStatus === "FAILED"
+        ? "Failed"
+        : "Untested"}
+    </Badge>
+  ),
+},
     
     {
       id: "actions",

@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-
   Form,
   FormControl,
   FormDescription,
@@ -16,19 +15,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
- Input,
- Button, 
-  Checkbox, 
-   Badge ,
-   Alert,
-    AlertDescription
-   } from "@/components/ui";
+  Input,
+  Button,
+  Checkbox,
+  Alert,
+  AlertDescription,
+} from "@/components/ui";
 import {
   useCreateMailboxMutation,
   useUpdateMailboxMutation,
@@ -36,199 +33,24 @@ import {
 import { toast } from "sonner";
 import {
   Loader2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Mail,
-  Server,
   ShieldCheck,
   AlertCircle,
-  Eye,
-  EyeOff,
   Wifi,
 } from "lucide-react";
 
 // ── Prisma-generated types only ───────────────────────────────────────────────
-import type { MailboxType, MailboxStatus } from "@/app/generated/prisma/browser";
+import type {
+  MailboxType,
+  MailboxStatus,
+} from "@/app/generated/prisma/browser";
 import type { MailboxModel as Mailbox } from "@/app/generated/prisma/models";
 import {
   useTestMailboxMutation,
   type CreateMailboxRequest,
   type UpdateMailboxRequest,
 } from "@/redux/features/mailbox/mailbox.api";
+import { buildDefaults, MAILBOX_TYPES, MailboxFormValues, PasswordInput, SectionCard, SectionLabel, StatusBadge } from "./MailboxUtils";
 
-// ── Form shape ────────────────────────────────────────────────────────────────
-
-type MailboxFormValues = {
-  label: string;
-  fromName: string;
-  fromEmail: string;
-  replyTo: string;
-  type: MailboxType;
-  isDefault: boolean;
-  isActive: boolean;
-  dailySendLimit: number;
-  // Gmail
-  gmailEmail: string;
-  gmailRefreshToken: string;
-  // SMTP
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPassEnc: string;
-  smtpSsl: boolean;
-  // IMAP
-  imapEnabled: boolean;
-  imapHost: string;
-  imapPort: number;
-  imapUser: string;
-  imapPassEnc: string;
-  imapSsl: boolean;
-};
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const MAILBOX_TYPES: { value: MailboxType; label: string; description: string; icon: React.ReactNode }[] = [
-  {
-    value: "GMAIL_OAUTH",
-    label: "Gmail — Connect with Google",
-    description: "Best for personal Gmail. Uses OAuth2 — no password needed.",
-    icon: <Mail className="w-4 h-4" />,
-  },
-  {
-    value: "GMAIL_IMAP",
-    label: "Gmail — App Password",
-    description: "Personal Gmail with a 16-character App Password.",
-    icon: <Mail className="w-4 h-4" />,
-  },
-  {
-    value: "CUSTOM_SMTP",
-    label: "Custom SMTP",
-    description: "Works with Resend, Brevo, Mailgun, your own server, or any SMTP provider.",
-    icon: <Server className="w-4 h-4" />,
-  },
-];
-
-const STATUS_CONFIG: Record<MailboxStatus, { label: string; className: string; icon: React.ReactNode }> = {
-  UNTESTED: {
-    label: "Not tested",
-    className: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
-    icon: <Clock className="w-3 h-3" />,
-  },
-  TESTING: {
-    label: "Testing…",
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-    icon: <Loader2 className="w-3 h-3 animate-spin" />,
-  },
-  CONNECTED: {
-    label: "Connected",
-    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    icon: <CheckCircle2 className="w-3 h-3" />,
-  },
-  FAILED: {
-    label: "Failed",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-    icon: <XCircle className="w-3 h-3" />,
-  },
-};
-
-// ── Default form values ───────────────────────────────────────────────────────
-
-function buildDefaults(mailbox?: Mailbox | null): MailboxFormValues {
-  return {
-    label:            mailbox?.label             ?? "",
-    fromName:         mailbox?.fromName          ?? "",
-    fromEmail:        mailbox?.fromEmail         ?? "",
-    replyTo:          mailbox?.replyTo           ?? "",
-    type:             (mailbox?.type as MailboxType) ?? "GMAIL_OAUTH",
-    isDefault:        mailbox?.isDefault         ?? false,
-    isActive:         mailbox?.isActive          ?? true,
-    dailySendLimit:   mailbox?.dailySendLimit     ?? 400,
-    gmailEmail:       mailbox?.gmailEmail        ?? "",
-    gmailRefreshToken: "",  // never pre-fill secrets
-    smtpHost:         mailbox?.smtpHost          ?? "",
-    smtpPort:         mailbox?.smtpPort          ?? 587,
-    smtpUser:         mailbox?.smtpUser          ?? "",
-    smtpPassEnc:      "",  // never pre-fill secrets
-    smtpSsl:          mailbox?.smtpSsl           ?? true,
-    imapEnabled:      mailbox?.imapEnabled       ?? false,
-    imapHost:         mailbox?.imapHost          ?? "",
-    imapPort:         mailbox?.imapPort          ?? 993,
-    imapUser:         mailbox?.imapUser          ?? "",
-    imapPassEnc:      "",  // never pre-fill secrets
-    imapSsl:          mailbox?.imapSsl           ?? true,
-  };
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: MailboxStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <Badge variant="outline" className={`gap-1 text-xs font-medium ${cfg.className}`}>
-      {cfg.icon}
-      {cfg.label}
-    </Badge>
-  );
-}
-
-function PasswordInput({
-  placeholder,
-  disabled,
-  value,
-  onChange,
-}: {
-  placeholder?: string;
-  disabled?: boolean;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input
-        type={show ? "text" : "password"}
-        placeholder={placeholder}
-        disabled={disabled}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="pr-10"
-      />
-      <button
-        type="button"
-        onClick={() => setShow((s) => !s)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        tabIndex={-1}
-      >
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
-}
-
-function SectionCard({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-lg border bg-muted/30 p-4 space-y-4 ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-      {children}
-    </p>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 interface MailboxDialogProps {
   mailbox?: Mailbox | null;
@@ -236,16 +58,15 @@ interface MailboxDialogProps {
 }
 
 export function MailboxDialog({ mailbox, children }: MailboxDialogProps) {
-  const [open, setOpen]                     = useState(false);
-
+  const [open, setOpen] = useState(false);
 
   const [createMailbox, { isLoading: isCreating }] = useCreateMailboxMutation();
   const [updateMailbox, { isLoading: isUpdating }] = useUpdateMailboxMutation();
-const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
-
+  const [testMailbox, { isLoading: testingConnection }] =
+    useTestMailboxMutation();
 
   const isEditing = !!mailbox;
-  const isSaving  = isCreating || isUpdating;
+  const isSaving = isCreating || isUpdating;
   const isLoading = isSaving || testingConnection;
 
   const form = useForm<MailboxFormValues>({
@@ -253,14 +74,23 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
     defaultValues: buildDefaults(mailbox),
   });
 
-  const type        = useWatch({ control: form.control, name: "type" }) as MailboxType;
-  const imapEnabled = useWatch({ control: form.control, name: "imapEnabled" }) ?? false;
+  const type = useWatch({ control: form.control, name: "type" }) as MailboxType;
+  const imapEnabled =
+    useWatch({ control: form.control, name: "imapEnabled" }) ?? false;
 
   // ── Test connection ─────────────────────────────────────────────────────────
 
   async function handleTestConnection() {
     if (!mailbox?.id) return;
-  await testMailbox(mailbox.id).unwrap();
+
+    try {
+      await testMailbox(mailbox.id).unwrap();
+      toast.success("Mailbox connection tested.");
+    } catch (error) {
+      toast.error("Failed to test mailbox connection.", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
   }
 
   // ── Submit ──────────────────────────────────────────────────────────────────
@@ -269,36 +99,36 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
     try {
       if (isEditing && mailbox) {
         const data: UpdateMailboxRequest = {
-          label:          values.label          || undefined,
-          fromName:       values.fromName       || undefined,
-          fromEmail:      values.fromEmail      || undefined,
-          replyTo:        values.replyTo        || undefined,
-          isDefault:      values.isDefault,
-          isActive:       values.isActive,
+          label: values.label || undefined,
+          fromName: values.fromName || undefined,
+          fromEmail: values.fromEmail || undefined,
+          replyTo: values.replyTo || undefined,
+          isDefault: values.isDefault,
+          isActive: values.isActive,
           dailySendLimit: values.dailySendLimit,
           gmailRefreshToken: values.gmailRefreshToken || undefined,
-          smtpHost:       values.smtpHost       || undefined,
-          smtpPort:       values.smtpPort       || undefined,
-          smtpUser:       values.smtpUser       || undefined,
-          smtpPassEnc:    values.smtpPassEnc    || undefined,
-          smtpSsl:        values.smtpSsl,
-          imapEnabled:    values.imapEnabled,
-          imapHost:       values.imapHost       || undefined,
-          imapPort:       values.imapPort       || undefined,
-          imapUser:       values.imapUser       || undefined,
-          imapPassEnc:    values.imapPassEnc    || undefined,
-          imapSsl:        values.imapSsl,
+          smtpHost: values.smtpHost || undefined,
+          smtpPort: values.smtpPort || undefined,
+          smtpUser: values.smtpUser || undefined,
+          smtpPassEnc: values.smtpPassEnc || undefined,
+          smtpSsl: values.smtpSsl,
+          imapEnabled: values.imapEnabled,
+          imapHost: values.imapHost || undefined,
+          imapPort: values.imapPort || undefined,
+          imapUser: values.imapUser || undefined,
+          imapPassEnc: values.imapPassEnc || undefined,
+          imapSsl: values.imapSsl,
         };
         await updateMailbox({ id: mailbox.id, data }).unwrap();
         toast.success("Mailbox updated.");
       } else {
         // Build typed create payload per type
         const base = {
-          label:          values.label,
-          fromName:       values.fromName       || undefined,
-          replyTo:        values.replyTo        || undefined,
-          isDefault:      values.isDefault,
-          isActive:       values.isActive,
+          label: values.label,
+          fromName: values.fromName || undefined,
+          replyTo: values.replyTo || undefined,
+          isDefault: values.isDefault,
+          isActive: values.isActive,
           dailySendLimit: values.dailySendLimit,
         };
 
@@ -308,39 +138,39 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
           createData = {
             ...base,
             type: "GMAIL_OAUTH",
-            gmailEmail:        values.gmailEmail,
+            gmailEmail: values.gmailEmail,
             gmailRefreshToken: values.gmailRefreshToken,
           };
         } else if (values.type === "GMAIL_IMAP") {
           createData = {
             ...base,
-            type:        "GMAIL_IMAP",
-            gmailEmail:  values.gmailEmail,
-            smtpPassEnc: values.smtpPassEnc,  // App Password goes in smtpPassEnc
+            type: "GMAIL_IMAP",
+            gmailEmail: values.gmailEmail,
+            smtpPassEnc: values.smtpPassEnc, // App Password goes in smtpPassEnc
             imapEnabled: values.imapEnabled,
-            imapHost:    values.imapHost    || undefined,
-            imapPort:    values.imapPort    || undefined,
-            imapUser:    values.imapUser    || undefined,
+            imapHost: values.imapHost || undefined,
+            imapPort: values.imapPort || undefined,
+            imapUser: values.imapUser || undefined,
             imapPassEnc: values.imapPassEnc || undefined,
-            imapSsl:     values.imapSsl,
+            imapSsl: values.imapSsl,
           };
         } else {
           // CUSTOM_SMTP
           createData = {
             ...base,
-            type:        "CUSTOM_SMTP",
-            fromEmail:   values.fromEmail   || undefined,
-            smtpHost:    values.smtpHost,
-            smtpPort:    values.smtpPort,
-            smtpUser:    values.smtpUser,
+            type: "CUSTOM_SMTP",
+            fromEmail: values.fromEmail || undefined,
+            smtpHost: values.smtpHost,
+            smtpPort: values.smtpPort,
+            smtpUser: values.smtpUser,
             smtpPassEnc: values.smtpPassEnc,
-            smtpSsl:     values.smtpSsl,
+            smtpSsl: values.smtpSsl,
             imapEnabled: values.imapEnabled,
-            imapHost:    values.imapHost    || undefined,
-            imapPort:    values.imapPort    || undefined,
-            imapUser:    values.imapUser    || undefined,
+            imapHost: values.imapHost || undefined,
+            imapPort: values.imapPort || undefined,
+            imapUser: values.imapUser || undefined,
             imapPassEnc: values.imapPassEnc || undefined,
-            imapSsl:     values.imapSsl,
+            imapSsl: values.imapSsl,
           };
         }
 
@@ -391,14 +221,18 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
           {isEditing && mailbox?.lastError && (
             <Alert variant="destructive" className="mt-2 py-2">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">{mailbox.lastError}</AlertDescription>
+              <AlertDescription className="text-xs">
+                {mailbox.lastError}
+              </AlertDescription>
             </Alert>
           )}
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-1">
-
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-5 pt-1"
+          >
             {/* ── Identity ─────────────────────────────────────────────────── */}
             <SectionCard>
               <SectionLabel>Identity</SectionLabel>
@@ -411,9 +245,15 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                   <FormItem>
                     <FormLabel>Label</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Main outreach, Follow-ups" disabled={isLoading} {...field} />
+                      <Input
+                        placeholder="e.g. Main outreach, Follow-ups"
+                        disabled={isLoading}
+                        {...field}
+                      />
                     </FormControl>
-                    <FormDescription>A name to identify this mailbox in your dashboard.</FormDescription>
+                    <FormDescription>
+                      A name to identify this mailbox in your dashboard.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -427,7 +267,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     <FormItem>
                       <FormLabel>Sender name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Faysal Sarker" disabled={isLoading} {...field} />
+                        <Input
+                          placeholder="e.g. Faysal Sarker"
+                          disabled={isLoading}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -440,7 +284,12 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     <FormItem>
                       <FormLabel>Reply-to</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="optional@yourdomain.com" disabled={isLoading} {...field} />
+                        <Input
+                          type="email"
+                          placeholder="optional@yourdomain.com"
+                          disabled={isLoading}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -457,10 +306,16 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     <FormItem>
                       <FormLabel>From email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="hello@yourdomain.com" disabled={isLoading} {...field} />
+                        <Input
+                          type="email"
+                          placeholder="hello@yourdomain.com"
+                          disabled={isLoading}
+                          {...field}
+                        />
                       </FormControl>
                       <FormDescription>
-                        The address recipients see. Must match your verified sending domain (e.g. Resend, Brevo).
+                        The address recipients see. Must match your verified
+                        sending domain (e.g. Resend, Brevo).
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -513,9 +368,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
             {/* ── Credentials ──────────────────────────────────────────────── */}
             <SectionCard>
               <SectionLabel>
-                {type === "GMAIL_OAUTH" ? "OAuth credentials" :
-                 type === "GMAIL_IMAP"  ? "Gmail App Password" :
-                 "SMTP credentials"}
+                {type === "GMAIL_OAUTH"
+                  ? "OAuth credentials"
+                  : type === "GMAIL_IMAP"
+                    ? "Gmail App Password"
+                    : "SMTP credentials"}
               </SectionLabel>
 
               {/* GMAIL_OAUTH */}
@@ -528,7 +385,12 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                       <FormItem>
                         <FormLabel>Gmail address</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@gmail.com" disabled={isLoading} {...field} />
+                          <Input
+                            type="email"
+                            placeholder="you@gmail.com"
+                            disabled={isLoading}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -542,14 +404,19 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                         <FormLabel>Refresh token</FormLabel>
                         <FormControl>
                           <PasswordInput
-                            placeholder={isEditing ? "Leave blank to keep existing token" : "Paste OAuth refresh token"}
+                            placeholder={
+                              isEditing
+                                ? "Leave blank to keep existing token"
+                                : "Paste OAuth refresh token"
+                            }
                             disabled={isLoading}
                             value={field.value}
                             onChange={field.onChange}
                           />
                         </FormControl>
                         <FormDescription>
-                          From Google Cloud Console → OAuth 2.0 credentials. Stored encrypted.
+                          From Google Cloud Console → OAuth 2.0 credentials.
+                          Stored encrypted.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -568,7 +435,12 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                       <FormItem>
                         <FormLabel>Gmail address</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@gmail.com" disabled={isLoading} {...field} />
+                          <Input
+                            type="email"
+                            placeholder="you@gmail.com"
+                            disabled={isLoading}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -582,14 +454,19 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                         <FormLabel>App Password</FormLabel>
                         <FormControl>
                           <PasswordInput
-                            placeholder={isEditing ? "Leave blank to keep existing" : "16-character App Password"}
+                            placeholder={
+                              isEditing
+                                ? "Leave blank to keep existing"
+                                : "16-character App Password"
+                            }
                             disabled={isLoading}
                             value={field.value}
                             onChange={field.onChange}
                           />
                         </FormControl>
                         <FormDescription>
-                          Generate at myaccount.google.com/apppasswords — requires 2FA enabled. Stored encrypted.
+                          Generate at myaccount.google.com/apppasswords —
+                          requires 2FA enabled. Stored encrypted.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -609,7 +486,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                         <FormItem className="col-span-2">
                           <FormLabel>Host</FormLabel>
                           <FormControl>
-                            <Input placeholder="smtp.resend.com" disabled={isLoading} {...field} />
+                            <Input
+                              placeholder="smtp.resend.com"
+                              disabled={isLoading}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -627,10 +508,14 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                               placeholder="587"
                               disabled={isLoading}
                               {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              onChange={(e) =>
+                                field.onChange(Number(e.target.value))
+                              }
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">587 or 465</FormDescription>
+                          <FormDescription className="text-xs">
+                            587 or 465
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -645,7 +530,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                         <FormItem>
                           <FormLabel>Username</FormLabel>
                           <FormControl>
-                            <Input placeholder="resend (or your email)" disabled={isLoading} {...field} />
+                            <Input
+                              placeholder="resend (or your email)"
+                              disabled={isLoading}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -659,13 +548,19 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                           <FormLabel>Password / API key</FormLabel>
                           <FormControl>
                             <PasswordInput
-                              placeholder={isEditing ? "Leave blank to keep existing" : "Your SMTP password or API key"}
+                              placeholder={
+                                isEditing
+                                  ? "Leave blank to keep existing"
+                                  : "Your SMTP password or API key"
+                              }
                               disabled={isLoading}
                               value={field.value}
                               onChange={field.onChange}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">Stored encrypted.</FormDescription>
+                          <FormDescription className="text-xs">
+                            Stored encrypted.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -678,9 +573,15 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     render={({ field }) => (
                       <FormItem className="flex items-center gap-2 pt-1">
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={isLoading}
+                          />
                         </FormControl>
-                        <FormLabel className="mt-0! font-normal">Use SSL (port 465). Uncheck for STARTTLS on 587.</FormLabel>
+                        <FormLabel className="mt-0! font-normal">
+                          Use SSL (port 465). Uncheck for STARTTLS on 587.
+                        </FormLabel>
                       </FormItem>
                     )}
                   />
@@ -698,15 +599,22 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     render={({ field }) => (
                       <FormItem className="flex items-center gap-2 m-0">
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={isLoading}
+                          />
                         </FormControl>
                       </FormItem>
                     )}
                   />
                   <div>
-                    <p className="text-sm font-medium leading-none">Enable reply detection</p>
+                    <p className="text-sm font-medium leading-none">
+                      Enable reply detection
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Checks for replies on demand via IMAP — nothing stored in the database.
+                      Checks for replies on demand via IMAP — nothing stored in
+                      the database.
                     </p>
                   </div>
                 </div>
@@ -717,8 +625,9 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                       <Alert className="py-2">
                         <ShieldCheck className="h-4 w-4" />
                         <AlertDescription className="text-xs">
-                          For Gmail IMAP: host is <code>imap.gmail.com</code>, port <code>993</code>.
-                          Use the same App Password as above.
+                          For Gmail IMAP: host is <code>imap.gmail.com</code>,
+                          port <code>993</code>. Use the same App Password as
+                          above.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -732,7 +641,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                             <FormLabel>IMAP host</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder={type === "GMAIL_IMAP" ? "imap.gmail.com" : "imap.example.com"}
+                                placeholder={
+                                  type === "GMAIL_IMAP"
+                                    ? "imap.gmail.com"
+                                    : "imap.example.com"
+                                }
                                 disabled={isLoading}
                                 {...field}
                               />
@@ -753,10 +666,14 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                                 placeholder="993"
                                 disabled={isLoading}
                                 {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                onChange={(e) =>
+                                  field.onChange(Number(e.target.value))
+                                }
                               />
                             </FormControl>
-                            <FormDescription className="text-xs">993 (SSL)</FormDescription>
+                            <FormDescription className="text-xs">
+                              993 (SSL)
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -772,7 +689,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                             <FormLabel>Username</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder={type === "GMAIL_IMAP" ? "you@gmail.com" : "you@example.com"}
+                                placeholder={
+                                  type === "GMAIL_IMAP"
+                                    ? "you@gmail.com"
+                                    : "you@example.com"
+                                }
                                 disabled={isLoading}
                                 {...field}
                               />
@@ -789,13 +710,19 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                             <FormLabel>Password</FormLabel>
                             <FormControl>
                               <PasswordInput
-                                placeholder={isEditing ? "Leave blank to keep existing" : "IMAP password"}
+                                placeholder={
+                                  isEditing
+                                    ? "Leave blank to keep existing"
+                                    : "IMAP password"
+                                }
                                 disabled={isLoading}
                                 value={field.value}
                                 onChange={field.onChange}
                               />
                             </FormControl>
-                            <FormDescription className="text-xs">Stored encrypted.</FormDescription>
+                            <FormDescription className="text-xs">
+                              Stored encrypted.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -808,9 +735,15 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                       render={({ field }) => (
                         <FormItem className="flex items-center gap-2">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isLoading}
+                            />
                           </FormControl>
-                          <FormLabel className="mt-0! font-normal">Use SSL</FormLabel>
+                          <FormLabel className="mt-0! font-normal">
+                            Use SSL
+                          </FormLabel>
                         </FormItem>
                       )}
                     />
@@ -839,7 +772,8 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                       />
                     </FormControl>
                     <FormDescription>
-                      Cap emails per day. Gmail: 500. Resend free: 100. Brevo free: 300.
+                      Cap emails per day. Gmail: 500. Resend free: 100. Brevo
+                      free: 300.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -853,12 +787,17 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                   render={({ field }) => (
                     <FormItem className="flex items-center gap-2">
                       <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <div>
                         <FormLabel className="mt-0!">Set as default</FormLabel>
                         <FormDescription className="text-xs">
-                          New campaigns will use this mailbox unless you pick another.
+                          New campaigns will use this mailbox unless you pick
+                          another.
                         </FormDescription>
                       </div>
                     </FormItem>
@@ -871,7 +810,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                   render={({ field }) => (
                     <FormItem className="flex items-center gap-2">
                       <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <div>
                         <FormLabel className="mt-0!">Active</FormLabel>
@@ -897,9 +840,11 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                     disabled={isLoading}
                     className="gap-2"
                   >
-                    {testingConnection
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <Wifi className="h-4 w-4" />}
+                    {testingConnection ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wifi className="h-4 w-4" />
+                    )}
                     {testingConnection ? "Testing…" : "Test connection"}
                   </Button>
                 )}
@@ -914,13 +859,21 @@ const [testMailbox, { isLoading:testingConnection }] = useTestMailboxMutation();
                 >
                   Cancel
                 </Button>
-                <Button type="submit" size="sm" disabled={isLoading} className="gap-2 min-w-24">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isLoading}
+                  className="gap-2 min-w-24"
+                >
                   {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isSaving ? "Saving…" : isEditing ? "Save changes" : "Add mailbox"}
+                  {isSaving
+                    ? "Saving…"
+                    : isEditing
+                      ? "Save changes"
+                      : "Add mailbox"}
                 </Button>
               </div>
             </div>
-
           </form>
         </Form>
       </DialogContent>
