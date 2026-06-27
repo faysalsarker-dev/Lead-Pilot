@@ -45,9 +45,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   useGetUserProfileQuery,
-  useGetUserSettingsQuery,
   useUpdateUserProfileMutation,
-  useUpdateUserSettingsMutation,
 } from "@/redux/hooks";
 
 type ProfileValues = Pick<
@@ -70,7 +68,7 @@ function getInitials(name?: string, email?: string) {
     .join("");
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value?: Date | string | null) {
   if (!value) return "Not available";
   return new Intl.DateTimeFormat("en", {
     month: "short",
@@ -79,7 +77,7 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
-function formatRelativeLogin(value?: string | null) {
+function formatRelativeLogin(value?: Date | string | null) {
   if (!value) return "No login recorded yet";
 
   const lastLogin = new Date(value);
@@ -114,14 +112,10 @@ export default function ProfileSettingsPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { data: profileData, isLoading: isProfileLoading, isError: isProfileError } = useGetUserProfileQuery();
-  const { data: settingsData, isLoading: isSettingsLoading } = useGetUserSettingsQuery();
   const [updateProfile, { isLoading: isSavingProfile }] = useUpdateUserProfileMutation();
-  const [updateSettings, { isLoading: isSavingSettings }] = useUpdateUserSettingsMutation();
-console.log("Profile data:", profileData);
   const profile = profileData?.data;
-  const settings = settingsData?.data;
-  const isLoading = isProfileLoading || isSettingsLoading;
-  const isSaving = isSavingProfile || isSavingSettings;
+  const isLoading = isProfileLoading;
+  const isSaving = isSavingProfile;
 
   const form = useForm<ProfileValues>({
     defaultValues: {
@@ -141,18 +135,18 @@ console.log("Profile data:", profileData);
   });
 
   useEffect(() => {
-    if (!profile && !settings) return;
+    if (!profile) return;
 
     form.reset({
       name: profile?.name || "",
       email: profile?.email || "",
       image: profile?.image || "",
       service: profile?.service || "",
-      autoEnrich: settings?.autoEnrich ?? profile?.autoEnrich ?? true,
-      defaultSendWindow: settings?.defaultSendWindow ?? profile?.defaultSendWindow ?? "09:00-11:00",
-      webPushEnabled: settings?.webPushEnabled ?? profile?.webPushEnabled ?? false,
+      autoEnrich: profile?.autoEnrich ?? true,
+      defaultSendWindow: profile?.defaultSendWindow ?? "09:00-11:00",
+      webPushEnabled: profile?.webPushEnabled ?? false,
     });
-  }, [form, profile, settings]);
+  }, [form, profile]);
 
   async function handleImageUpload(file?: File) {
     if (!file) return;
@@ -205,9 +199,6 @@ console.log("Profile data:", profileData);
         name: values.name,
         image: values.image || null,
         service: values.service || null,
-      }).unwrap();
-
-      await updateSettings({
         autoEnrich: values.autoEnrich,
         defaultSendWindow: values.defaultSendWindow,
         webPushEnabled: values.webPushEnabled,
@@ -237,13 +228,13 @@ console.log("Profile data:", profileData);
   const status = profile?.status || (profile?.isActive === false ? "BLOCKED" : "ACTIVE");
   const currentStreak = profile?.currentStreak ?? 0;
   const longestStreak = profile?.longestStreak ?? 0;
-  const defaultSendWindow = settings?.defaultSendWindow ?? profile?.defaultSendWindow ?? "09:00-11:00";
+  const defaultSendWindow = profile?.defaultSendWindow ?? "09:00-11:00";
   const completenessScore = getCompletenessScore({
     name: profile?.name,
     image: profile?.image,
     service: profile?.service,
     defaultSendWindow,
-    autoEnrich: settings?.autoEnrich ?? profile?.autoEnrich,
+    autoEnrich: profile?.autoEnrich,
   });
 
   return (

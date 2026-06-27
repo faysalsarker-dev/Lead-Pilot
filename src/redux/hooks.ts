@@ -21,3 +21,10 @@ export {
   useUpdateMailboxMutation,
   useTestMailboxMutation,
 } from "@/redux/features/mailbox/mailbox.api";
+
+export {
+  useDeleteUserProfileMutation,
+  useGetUserProfileQuery,
+  useLazyGetUserProfileQuery,
+  useUpdateUserProfileMutation,
+} from "@/redux/features/user/user.api";
