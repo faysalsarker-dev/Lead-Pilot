@@ -28,3 +28,35 @@ export {
   useLazyGetUserProfileQuery,
   useUpdateUserProfileMutation,
 } from "@/redux/features/user/user.api";
+
+export {
+  useCreateTemplateMutation,
+  useDeleteTemplateMutation,
+  useGetTemplateQuery,
+  useGetTemplatesQuery,
+  useLazyGetTemplateQuery,
+  useLazyGetTemplatesQuery,
+  useUpdateTemplateMutation,
+} from "@/redux/features/templates/templates.api";
+
+export {
+  useCreateCampaignMutation,
+  useDeleteCampaignMutation,
+  useGetCampaignQuery,
+  useGetCampaignsQuery,
+  useLaunchCampaignMutation,
+  useLazyGetCampaignQuery,
+  useLazyGetCampaignsQuery,
+  usePauseCampaignMutation,
+  useUpdateCampaignMutation,
+} from "@/redux/features/campaigns/campaigns.api";
+
+export {
+  useCreateLeadMutation,
+  useDeleteLeadMutation,
+  useGetLeadQuery,
+  useGetLeadsQuery,
+  useLazyGetLeadQuery,
+  useLazyGetLeadsQuery,
+  useUpdateLeadMutation,
+} from "@/redux/features/leads/leads.api";

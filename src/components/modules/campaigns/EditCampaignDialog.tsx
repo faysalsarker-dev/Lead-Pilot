@@ -17,7 +17,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -32,22 +31,31 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useGetMailboxesQuery, useUpdateCampaignMutation } from "@/redux/hooks";
+import {
+  useGetMailboxesQuery,
+  useGetTemplatesQuery,
+  useUpdateCampaignMutation,
+} from "@/redux/hooks";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { Campaign } from "@/redux/features/campaigns/campaigns.api";
 
+const NO_TEMPLATE = "NO_TEMPLATE";
+
 const updateCampaignSchema = z.object({
-  name: z.string().min(1, "Name is required").min(2, "Name must be at least 2 characters"),
+  name: z.string().min(1, "Campaign name is required").min(3, "Name must be at least 3 characters"),
+  category: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
   mailboxId: z.string().min(1, "Mailbox is required"),
-  subject: z.string().min(1, "Subject is required"),
-  bodyTemplate: z.string().min(1, "Body is required"),
-  sendWindowStart: z.coerce.number().int().min(0).max(23),
-  sendWindowEnd: z.coerce.number().int().min(0).max(23),
-  followupDay1: z.coerce.number().int().min(0).max(30),
-  followupDay2: z.coerce.number().int().min(0).max(30),
-  notes: z.string().optional(),
+  initialTemplateId: z.string().min(1, "Initial template is required"),
+  followup1TemplateId: z.string().optional(),
+  followup2TemplateId: z.string().optional(),
+  finalTemplateId: z.string().optional(),
+  sendWindow: z.string().min(1, "Send window is required"),
+  followup1Days: z.coerce.number().positive(),
+  followup2Days: z.coerce.number().positive(),
+  finalDays: z.coerce.number().positive(),
 });
 
 type UpdateCampaignFormValues = z.infer<typeof updateCampaignSchema>;
@@ -61,21 +69,24 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
   const [open, setOpen] = useState(false);
   const [updateCampaign, { isLoading }] = useUpdateCampaignMutation();
   const { data: mailboxesData } = useGetMailboxesQuery({ page: 1, limit: 100 });
-
-  const mailboxes = mailboxesData?.data || [];
+  const { data: templatesData } = useGetTemplatesQuery({ page: 1, limit: 100 });
 
   const form = useForm<UpdateCampaignFormValues>({
     resolver: zodResolver(updateCampaignSchema) as unknown as Resolver<UpdateCampaignFormValues>,
     defaultValues: {
       name: campaign.name,
+      category: campaign.category ?? "",
+      country: campaign.country ?? "",
+      city: campaign.city ?? "",
       mailboxId: campaign.mailboxId,
-      subject: campaign.subject || "",
-      bodyTemplate: campaign.bodyTemplate || "",
-      sendWindowStart: campaign.sendWindowStart || 9,
-      sendWindowEnd: campaign.sendWindowEnd || 17,
-      followupDay1: campaign.followupDay1 || 3,
-      followupDay2: campaign.followupDay2 || 7,
-      notes: campaign.notes || "",
+      initialTemplateId: campaign.initialTemplateId,
+      followup1TemplateId: campaign.followup1TemplateId ?? "",
+      followup2TemplateId: campaign.followup2TemplateId ?? "",
+      finalTemplateId: campaign.finalTemplateId ?? "",
+      sendWindow: campaign.sendWindow,
+      followup1Days: campaign.followup1Days,
+      followup2Days: campaign.followup2Days,
+      finalDays: campaign.finalDays,
     },
   });
 
@@ -83,7 +94,15 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
     try {
       await updateCampaign({
         id: campaign.id,
-        data: values,
+        data: {
+          ...values,
+          category: values.category || undefined,
+          country: values.country || undefined,
+          city: values.city || undefined,
+          followup1TemplateId: values.followup1TemplateId || null,
+          followup2TemplateId: values.followup2TemplateId || null,
+          finalTemplateId: values.finalTemplateId || null,
+        },
       }).unwrap();
 
       toast.success("Campaign updated successfully");
@@ -104,6 +123,13 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
     }
   }
 
+  const mailboxes = mailboxesData?.data || [];
+  const templates = templatesData?.data || [];
+  const initialTemplates = templates.filter((template) => template.type === "INITIAL");
+  const followup1Templates = templates.filter((template) => template.type === "FOLLOWUP_1");
+  const followup2Templates = templates.filter((template) => template.type === "FOLLOWUP_2");
+  const finalTemplates = templates.filter((template) => template.type === "FINAL");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -113,7 +139,7 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
         <DialogHeader className="border-b px-6 py-5 pr-12">
           <DialogTitle>Edit Campaign</DialogTitle>
           <DialogDescription>
-            Update campaign settings and content
+            Update targeting, sending account, templates, and follow-up timing.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,7 +150,7 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold">Campaign Setup</h3>
                   <p className="text-sm text-muted-foreground">
-                    Update the campaign identity and sending account.
+                    Update the campaign identity, targeting, and sending account.
                   </p>
                 </div>
 
@@ -136,7 +162,7 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
                       <FormItem>
                         <FormLabel>Campaign Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Summer Product Launch" {...field} />
+                          <Input placeholder="Q2 Outreach Campaign" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -152,7 +178,7 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
                         <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Select a mailbox" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -167,26 +193,15 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
                       </FormItem>
                     )}
                   />
-                </div>
-              </div>
 
-              <div className="rounded-lg border bg-card p-4">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold">Email Content</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Keep the subject and body aligned with this campaign.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
                   <FormField
                     control={form.control}
-                    name="subject"
+                    name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Subject *</FormLabel>
+                        <FormLabel>Category</FormLabel>
                         <FormControl>
-                          <Input placeholder="Check out our new features" {...field} />
+                          <Input placeholder="car wash" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -195,16 +210,26 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
 
                   <FormField
                     control={form.control}
-                    name="bodyTemplate"
+                    name="city"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email Body *</FormLabel>
+                        <FormLabel>City</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Write your email content..."
-                            className="min-h-36 resize-y"
-                            {...field}
-                          />
+                          <Input placeholder="Auckland" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input placeholder="New Zealand" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -215,97 +240,194 @@ export function EditCampaignDialog({ campaign, children }: EditCampaignDialogPro
 
               <div className="rounded-lg border bg-card p-4">
                 <div className="mb-4">
-                  <h3 className="text-sm font-semibold">Timing & Follow-ups</h3>
+                  <h3 className="text-sm font-semibold">Email Templates</h3>
                   <p className="text-sm text-muted-foreground">
-                    Set the sending window and follow-up delays.
+                    Change the initial email or optional follow-up sequence.
                   </p>
                 </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="sendWindowStart"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Send Window Start (Hour)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" max="23" {...field} />
-                    </FormControl>
-                    <FormDescription>24-hour format (0-23)</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="sendWindowEnd"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Send Window End (Hour)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" max="23" {...field} />
-                    </FormControl>
-                    <FormDescription>24-hour format (0-23)</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="initialTemplateId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initial Email *</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select initial template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {initialTemplates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="followupDay1"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Follow-up 1 (Days)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" max="30" {...field} />
-                    </FormControl>
-                    <FormDescription>Days until first follow-up</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="followupDay2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Follow-up 2 (Days)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" max="30" {...field} />
-                    </FormControl>
-                    <FormDescription>Days until second follow-up</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="followup1TemplateId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Follow-up #1</FormLabel>
+                        <Select
+                          value={field.value || NO_TEMPLATE}
+                          onValueChange={(value) => field.onChange(value === NO_TEMPLATE ? "" : value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select follow-up template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={NO_TEMPLATE}>None</SelectItem>
+                            {followup1Templates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="followup2TemplateId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Follow-up #2</FormLabel>
+                        <Select
+                          value={field.value || NO_TEMPLATE}
+                          onValueChange={(value) => field.onChange(value === NO_TEMPLATE ? "" : value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select follow-up template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={NO_TEMPLATE}>None</SelectItem>
+                            {followup2Templates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="finalTemplateId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Final Email</FormLabel>
+                        <Select
+                          value={field.value || NO_TEMPLATE}
+                          onValueChange={(value) => field.onChange(value === NO_TEMPLATE ? "" : value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select final template" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={NO_TEMPLATE}>None</SelectItem>
+                            {finalTemplates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="rounded-lg border bg-card p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold">Timing & Schedule</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Control when emails are sent and how long each follow-up waits.
+                  </p>
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="notes"
+                  name="sendWindow"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes</FormLabel>
+                      <FormLabel>Send Window *</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Add internal notes..."
-                          className="min-h-24 resize-y"
-                          {...field}
-                        />
+                        <Input placeholder="09:00-11:00" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="followup1Days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Follow-up #1 (Days)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="followup2Days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Follow-up #2 (Days)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="finalDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Final (Days)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="border-t px-6 py-5">
               <Button
                 type="button"
                 variant="outline"

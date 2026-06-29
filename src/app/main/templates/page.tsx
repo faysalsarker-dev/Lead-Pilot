@@ -129,6 +129,8 @@ export default function TemplatesPage() {
   const { data: templatesData, isLoading } = useGetTemplatesQuery({
     page,
     limit,
+    search: searchTerm || undefined,
+    type: typeFilter === ALL_TEMPLATE_TYPES ? undefined : typeFilter,
   });
 
   const templates = templatesData?.data || [];
@@ -193,7 +195,7 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-4 sm:p-6">
+    <div className="w-full max-w-6xl mx-auto space-y-6 p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between ">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -295,7 +297,7 @@ export default function TemplatesPage() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-8 w-[132px]">
+                <SelectTrigger className="h-8 w-33">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -364,7 +366,7 @@ export default function TemplatesPage() {
                   const preview = getTemplatePreview(template);
 
                   return (
-                    <Card key={template.id} className="flex min-h-[310px] flex-col border-border/70 shadow-sm">
+                    <Card key={template.id} className="flex min-h-77.5 flex-col border-border/70 shadow-sm">
                       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3">
                         <div className="min-w-0 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -474,7 +476,7 @@ export default function TemplatesPage() {
                   );
                 })
               ) : (
-                <div className="col-span-full flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+                <div className="col-span-full flex min-h-65 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
                   <Search className="mb-4 h-10 w-10 text-muted-foreground/70" />
                   <h3 className="text-base font-semibold">No templates match your filters</h3>
                   <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
@@ -484,7 +486,7 @@ export default function TemplatesPage() {
               )}
             </div>
           ) : (
-            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+            <div className="flex min-h-65 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
               <FileText className="mb-4 h-10 w-10 text-muted-foreground/70" />
               <h3 className="text-base font-semibold">No templates yet</h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">

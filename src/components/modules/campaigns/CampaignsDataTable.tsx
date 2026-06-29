@@ -121,15 +121,17 @@ export function CampaignsTable({
       accessorKey: "leadCount",
       header: "Leads",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.leadCount || 0} leads</span>
+        <span className="text-sm">
+          {row.original._count.campaignLeads} leads
+        </span>
       ),
     },
     {
       accessorKey: "sentCount",
       header: "Sent",
       cell: ({ row }) => {
-        const sent = row.original.sentCount || 0;
-        const total = row.original.leadCount || 0;
+        const sent = row.original.totalSent;
+        const total = row.original._count.campaignLeads;
         const percentage = total > 0 ? Math.round((sent / total) * 100) : 0;
 
         return (
